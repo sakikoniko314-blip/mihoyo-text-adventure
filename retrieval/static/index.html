@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧宫文本检索</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            background-color: #1a1a2e;
+            color: #eaeaea;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            padding: 40px 0 30px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #eaeaea;
+            letter-spacing: 2px;
+        }
+
+        /* Search Bar */
+        .search-section {
+            margin-bottom: 20px;
+        }
+
+        .search-bar {
+            display: flex;
+            gap: 10px;
+            background-color: #16213e;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .search-input {
+            flex: 1;
+            background-color: #0f3460;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #eaeaea;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .search-input:focus {
+            border-color: #e94560;
+        }
+
+        .search-input::placeholder {
+            color: #888;
+        }
+
+        .search-btn {
+            background-color: #e94560;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-weight: 500;
+        }
+
+        .search-btn:hover {
+            background-color: #ff6b6b;
+        }
+
+        .search-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Filter Bar */
+        .filter-section {
+            margin-bottom: 25px;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            background-color: #16213e;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .filter-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .filter-select {
+            background-color: #0f3460;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: #eaeaea;
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .filter-select:focus {
+            border-color: #e94560;
+        }
+
+        .filter-select option {
+            background-color: #16213e;
+        }
+
+        /* Results Count */
+        .results-count {
+            margin-bottom: 15px;
+            color: #888;
+            font-size: 14px;
+        }
+
+        .results-count span {
+            color: #e94560;
+            font-weight: 600;
+        }
+
+        /* Results List */
+        .results-section {
+            margin-bottom: 30px;
+        }
+
+        .results-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Result Card */
+        .result-card {
+            background-color: #16213e;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 2px solid transparent;
+        }
+
+        .result-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 12px rgba(0, 0, 0, 0.4);
+            border-color: #0f3460;
+        }
+
+        .result-card.expanded {
+            border-color: #e94560;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #eaeaea;
+            flex: 1;
+        }
+
+        .card-badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .badge-domain {
+            background-color: #0f3460;
+            color: #eaeaea;
+        }
+
+        .badge-type {
+            background-color: #e94560;
+            color: white;
+        }
+
+        .badge-category {
+            background-color: #1a1a2e;
+            color: #888;
+            border: 1px solid #0f3460;
+        }
+
+        .card-snippet {
+            color: #b0b0b0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .card-snippet mark.highlight {
+            background-color: #e94560;
+            color: white;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        /* Expanded Content */
+        .card-content {
+            display: none;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #0f3460;
+        }
+
+        .card-content.show {
+            display: block;
+        }
+
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .content-title {
+            font-size: 14px;
+            color: #888;
+        }
+
+        .close-btn {
+            background-color: transparent;
+            border: 1px solid #0f3460;
+            color: #888;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+
+        .close-btn:hover {
+            border-color: #e94560;
+            color: #e94560;
+        }
+
+        .content-body {
+            background-color: #0f3460;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.8;
+            color: #eaeaea;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .content-body h1, .content-body h2, .content-body h3,
+        .content-body h4, .content-body h5, .content-body h6 {
+            color: #eaeaea;
+            margin: 15px 0 10px;
+        }
+
+        .content-body strong {
+            color: #e94560;
+        }
+
+        .content-body em {
+            color: #888;
+        }
+
+        /* Loading Spinner */
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid #0f3460;
+            border-top-color: #e94560;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .loading-text {
+            margin-top: 15px;
+            color: #888;
+            font-size: 14px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+
+        .empty-state-text {
+            font-size: 16px;
+        }
+
+        /* Load More Button */
+        .load-more-section {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        .load-more-btn {
+            background-color: #0f3460;
+            color: #eaeaea;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 12px 40px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .load-more-btn:hover {
+            border-color: #e94560;
+            background-color: #16213e;
+        }
+
+        .load-more-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Error Message */
+        .error-message {
+            background-color: rgba(233, 69, 96, 0.2);
+            border: 1px solid #e94560;
+            color: #e94560;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .search-bar {
+                flex-direction: column;
+            }
+
+            .search-btn {
+                width: 100%;
+            }
+
+            .filter-bar {
+                flex-direction: column;
+            }
+
+            .filter-group {
+                min-width: auto;
+            }
+
+            .card-header {
+                flex-direction: column;
+            }
+
+            .result-card {
+                padding: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>智慧宫文本检索</h1>
+        </header>
+
+        <section class="search-section">
+            <div class="search-bar">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="searchInput" 
+                    placeholder="输入关键词搜索..."
+                    autocomplete="off"
+                >
+                <button class="search-btn" id="searchBtn">搜索</button>
+            </div>
+        </section>
+
+        <section class="filter-section">
+            <div class="filter-bar">
+                <div class="filter-group">
+                    <label class="filter-label">游戏域</label>
+                    <select class="filter-select" id="domainSelect">
+                        <option value="">全部</option>
+                        <option value="gi">原神</option>
+                        <option value="hsr">崩坏：星穹铁道</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">类型</label>
+                    <select class="filter-select" id="typeSelect">
+                        <option value="">全部</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label class="filter-label">分类</label>
+                    <select class="filter-select" id="categorySelect">
+                        <option value="">全部</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section class="results-section">
+            <div class="results-count" id="resultsCount"></div>
+            <div class="results-list" id="resultsList"></div>
+            <div class="load-more-section" id="loadMoreSection" style="display: none;">
+                <button class="load-more-btn" id="loadMoreBtn">加载更多</button>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // State
+        const state = {
+            query: '',
+            domain: '',
+            docType: '',
+            category: '',
+            offset: 0,
+            limit: 20,
+            total: 0,
+            results: [],
+            loading: false,
+            expandedId: null
+        };
+
+        // DOM Elements
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const domainSelect = document.getElementById('domainSelect');
+        const typeSelect = document.getElementById('typeSelect');
+        const categorySelect = document.getElementById('categorySelect');
+        const resultsCount = document.getElementById('resultsCount');
+        const resultsList = document.getElementById('resultsList');
+        const loadMoreSection = document.getElementById('loadMoreSection');
+        const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+        // Initialize
+        async function init() {
+            // Parse URL hash
+            parseHash();
+            
+            // Set initial values
+            searchInput.value = state.query;
+            domainSelect.value = state.domain;
+            
+            // Focus search input
+            searchInput.focus();
+            
+            // Load facets
+            await loadFacets();
+            
+            // Set filter values from hash
+            typeSelect.value = state.docType;
+            categorySelect.value = state.category;
+            
+            // Perform search if query exists
+            if (state.query) {
+                await performSearch();
+            }
+        }
+
+        // Parse URL hash
+        function parseHash() {
+            const hash = window.location.hash.slice(1);
+            if (!hash) return;
+            
+            const params = new URLSearchParams(hash);
+            state.query = params.get('q') || '';
+            state.domain = params.get('domain') || '';
+            state.docType = params.get('type') || '';
+            state.category = params.get('category') || '';
+        }
+
+        // Update URL hash
+        function updateHash() {
+            const params = new URLSearchParams();
+            if (state.query) params.set('q', state.query);
+            if (state.domain) params.set('domain', state.domain);
+            if (state.docType) params.set('type', state.docType);
+            if (state.category) params.set('category', state.category);
+            
+            window.location.hash = params.toString() ? '#' + params.toString() : '';
+        }
+
+        // Load facets
+        async function loadFacets() {
+            try {
+                const url = new URL('/api/facets', window.location.origin);
+                url.port = '8765';
+                if (state.domain) {
+                    url.searchParams.set('domain', state.domain);
+                }
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to load facets');
+                
+                const data = await response.json();
+                
+                // Populate type dropdown
+                typeSelect.innerHTML = '<option value="">全部</option>';
+                if (data.doc_types) {
+                    data.doc_types.forEach(type => {
+                        const option = document.createElement('option');
+                        option.value = type.value;
+                        option.textContent = `${type.value} (${type.count})`;
+                        typeSelect.appendChild(option);
+                    });
+                }
+                
+                // Populate category dropdown
+                categorySelect.innerHTML = '<option value="">全部</option>';
+                if (data.categories) {
+                    data.categories.forEach(cat => {
+                        const option = document.createElement('option');
+                        option.value = cat.value;
+                        option.textContent = `${cat.value} (${cat.count})`;
+                        categorySelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading facets:', error);
+            }
+        }
+
+        // Perform search
+        async function performSearch(append = false) {
+            if (state.loading) return;
+            
+            state.loading = true;
+            if (!append) {
+                state.offset = 0;
+                state.results = [];
+            }
+            
+            showLoading(append);
+            
+            try {
+                const url = new URL('/api/search', window.location.origin);
+                url.port = '8765';
+                if (state.query) url.searchParams.set('q', state.query);
+                if (state.domain) url.searchParams.set('domain', state.domain);
+                if (state.docType) url.searchParams.set('type', state.docType);
+                if (state.category) url.searchParams.set('category', state.category);
+                url.searchParams.set('limit', state.limit);
+                url.searchParams.set('offset', state.offset);
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Search failed');
+                
+                const data = await response.json();
+                
+                state.total = data.total;
+                
+                if (append) {
+                    state.results = state.results.concat(data.results);
+                } else {
+                    state.results = data.results;
+                }
+                
+                renderResults(append);
+            } catch (error) {
+                console.error('Search error:', error);
+                showError('搜索失败，请稍后重试');
+            } finally {
+                state.loading = false;
+            }
+        }
+
+        // Show loading state
+        function showLoading(append) {
+            if (!append) {
+                resultsList.innerHTML = `
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <div class="loading-text">搜索中...</div>
+                    </div>
+                `;
+            }
+            loadMoreBtn.disabled = true;
+            loadMoreBtn.textContent = '加载中...';
+        }
+
+        // Show error message
+        function showError(message) {
+            resultsList.innerHTML = `<div class="error-message">${message}</div>`;
+            resultsCount.textContent = '';
+            loadMoreSection.style.display = 'none';
+        }
+
+        // Render results
+        function renderResults(append) {
+            // Update count
+            if (state.total > 0) {
+                resultsCount.innerHTML = `找到 <span>${state.total}</span> 条结果`;
+            } else {
+                resultsCount.textContent = '';
+            }
+            
+            // Clear if not appending
+            if (!append) {
+                resultsList.innerHTML = '';
+            }
+            
+            // Empty state
+            if (state.results.length === 0) {
+                resultsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔍</div>
+                        <div class="empty-state-text">无结果</div>
+                    </div>
+                `;
+                loadMoreSection.style.display = 'none';
+                return;
+            }
+            
+            // Render result cards
+            const startIndex = append ? state.offset : 0;
+            state.results.slice(startIndex).forEach(result => {
+                const card = createResultCard(result);
+                resultsList.appendChild(card);
+            });
+            
+            // Show/hide load more button
+            if (state.results.length < state.total) {
+                loadMoreSection.style.display = 'block';
+                loadMoreBtn.disabled = false;
+                loadMoreBtn.textContent = '加载更多';
+            } else {
+                loadMoreSection.style.display = 'none';
+            }
+        }
+
+        // Create result card element
+        function createResultCard(result) {
+            const card = document.createElement('div');
+            card.className = 'result-card';
+            card.dataset.id = result.id;
+            
+            const snippetHtml = result.snippet ? result.snippet.replace(/<mark>/g, '<mark class="highlight">') : '';
+            
+            card.innerHTML = `
+                <div class="card-header">
+                    <div class="card-title">${escapeHtml(result.name)}</div>
+                    <div class="card-badges">
+                        <span class="badge badge-domain">${escapeHtml(result.domain)}</span>
+                        <span class="badge badge-type">${escapeHtml(result.doc_type)}</span>
+                        ${result.category ? `<span class="badge badge-category">${escapeHtml(result.category)}</span>` : ''}
+                    </div>
+                </div>
+                <div class="card-snippet">${snippetHtml}</div>
+                <div class="card-content" id="content-${result.id}">
+                    <div class="content-header">
+                        <span class="content-title">完整内容</span>
+                        <button class="close-btn" onclick="closeDocument(event, '${result.id}')">收起</button>
+                    </div>
+                    <div class="content-body">加载中...</div>
+                </div>
+            `;
+            
+            card.addEventListener('click', (e) => {
+                // Don't expand if clicking the close button
+                if (e.target.classList.contains('close-btn')) return;
+                expandDocument(result.id);
+            });
+            
+            return card;
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Expand document
+        async function expandDocument(id) {
+            // Close previously expanded
+            if (state.expandedId && state.expandedId !== id) {
+                const prevCard = document.querySelector(`.result-card[data-id="${state.expandedId}"]`);
+                if (prevCard) {
+                    prevCard.classList.remove('expanded');
+                    const prevContent = prevCard.querySelector('.card-content');
+                    if (prevContent) prevContent.classList.remove('show');
+                }
+            }
+            
+            const card = document.querySelector(`.result-card[data-id="${id}"]`);
+            if (!card) return;
+            
+            const contentEl = card.querySelector('.card-content');
+            const bodyEl = card.querySelector('.content-body');
+            
+            // Toggle if already expanded
+            if (state.expandedId === id) {
+                card.classList.remove('expanded');
+                contentEl.classList.remove('show');
+                state.expandedId = null;
+                return;
+            }
+            
+            card.classList.add('expanded');
+            contentEl.classList.add('show');
+            state.expandedId = id;
+            
+            // Load content if not already loaded
+            if (bodyEl.textContent === '加载中...') {
+                try {
+                    const url = new URL(`/api/doc/${id}`, window.location.origin);
+                    url.port = '8765';
+                    
+                    const response = await fetch(url);
+                    if (!response.ok) throw new Error('Failed to load document');
+                    
+                    const data = await response.json();
+                    bodyEl.innerHTML = renderMarkdown(data.content);
+                } catch (error) {
+                    bodyEl.innerHTML = '<span style="color: #e94560;">加载失败</span>';
+                }
+            }
+        }
+
+        // Close document (global function for onclick)
+        window.closeDocument = function(event, id) {
+            event.stopPropagation();
+            const card = document.querySelector(`.result-card[data-id="${id}"]`);
+            if (card) {
+                card.classList.remove('expanded');
+                const contentEl = card.querySelector('.card-content');
+                if (contentEl) contentEl.classList.remove('show');
+            }
+            state.expandedId = null;
+        };
+
+        // Render markdown (basic)
+        function renderMarkdown(content) {
+            if (!content) return '';
+            
+            // Escape HTML first
+            let html = escapeHtml(content);
+            
+            // Convert headings (# Heading -> <strong>Heading</strong>)
+            html = html.replace(/^#{1,6}\s+(.+)$/gm, '<strong>$1</strong>');
+            
+            // Convert bold (**text** -> <strong>text</strong>)
+            html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            
+            // Convert italic (*text* -> <em>text</em>)
+            html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            
+            // Preserve line breaks
+            html = html.replace(/\n/g, '<br>');
+            
+            return html;
+        }
+
+        // Event Listeners
+        searchBtn.addEventListener('click', () => {
+            state.query = searchInput.value.trim();
+            updateHash();
+            performSearch();
+        });
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                state.query = searchInput.value.trim();
+                updateHash();
+                performSearch();
+            }
+        });
+
+        domainSelect.addEventListener('change', async () => {
+            state.domain = domainSelect.value;
+            state.docType = '';
+            state.category = '';
+            typeSelect.value = '';
+            categorySelect.value = '';
+            await loadFacets();
+            updateHash();
+            performSearch();
+        });
+
+        typeSelect.addEventListener('change', () => {
+            state.docType = typeSelect.value;
+            updateHash();
+            performSearch();
+        });
+
+        categorySelect.addEventListener('change', () => {
+            state.category = categorySelect.value;
+            updateHash();
+            performSearch();
+        });
+
+        loadMoreBtn.addEventListener('click', () => {
+            state.offset += state.limit;
+            performSearch(true);
+        });
+
+        // Handle hash change
+        window.addEventListener('hashchange', () => {
+            parseHash();
+            searchInput.value = state.query;
+            domainSelect.value = state.domain;
+            typeSelect.value = state.docType;
+            categorySelect.value = state.category;
+            performSearch();
+        });
+
+        // Start
+        init();
+    </script>
+</body>
+</html>

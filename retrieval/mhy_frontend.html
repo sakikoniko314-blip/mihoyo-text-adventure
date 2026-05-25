@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MHY Text Database</title>
+    <style>
+        /* CSS Reset & Base */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --accent: #7c3aed;
+            --accent-hover: #8b5cf6;
+            --accent-glow: rgba(124, 58, 237, 0.4);
+            --border: #30363d;
+            --border-light: #21262d;
+            --badge-genshin: #10b981;
+            --badge-starrail: #3b82f6;
+            --scrollbar-track: #161b22;
+            --scrollbar-thumb: #30363d;
+            --scrollbar-thumb-hover: #484f58;
+        }
+
+        html {
+            font-size: 16px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            line-height: 1.5;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--scrollbar-track);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--scrollbar-thumb);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--scrollbar-thumb-hover);
+        }
+
+        /* Main Layout */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header Section */
+        .header {
+            background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 24px;
+            flex-shrink: 0;
+        }
+
+        .header-content {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Search Bar */
+        .search-section {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-wrapper {
+            position: relative;
+            flex: 1;
+            min-width: 300px;
+            max-width: 600px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 48px 12px 16px;
+            background: rgba(22, 27, 34, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 0.9375rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            outline: none;
+        }
+
+        .search-input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow), 0 0 20px rgba(124, 58, 237, 0.15);
+            background: rgba(22, 27, 34, 0.95);
+        }
+
+        .search-btn {
+            position: absolute;
+            right: 8px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .search-btn:hover {
+            background: var(--accent-hover);
+            transform: translateY(-50%) scale(1.05);
+        }
+
+        .search-btn:active {
+            transform: translateY(-50%) scale(0.95);
+        }
+
+        .search-btn svg {
+            width: 18px;
+            height: 18px;
+            color: white;
+        }
+
+        /* Filters */
+        .filters {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .filter-select {
+            padding: 10px 36px 10px 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            cursor: pointer;
+            outline: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            transition: all 0.2s ease;
+            min-width: 120px;
+        }
+
+        .filter-select:hover {
+            border-color: var(--accent);
+            background-color: var(--bg-tertiary);
+        }
+
+        .filter-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+
+        .filter-select option {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            padding: 8px;
+        }
+
+        /* Main Content */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Results Panel */
+        .results-panel {
+            width: 40%;
+            min-width: 380px;
+            max-width: 600px;
+            background: var(--bg-primary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .results-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-secondary);
+        }
+
+        .results-count {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .results-count span {
+            color: var(--accent);
+            font-weight: 700;
+        }
+
+        .results-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+        }
+
+        /* Result Card */
+        .result-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .result-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: var(--accent);
+            transform: scaleY(0);
+            transition: transform 0.25s ease;
+        }
+
+        .result-card:hover {
+            border-color: var(--accent);
+            transform: translateX(4px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .result-card:hover::before {
+            transform: scaleY(1);
+        }
+
+        .result-card.active {
+            background: var(--bg-tertiary);
+            border-color: var(--accent);
+            box-shadow: 0 0 0 1px var(--accent), 0 4px 20px rgba(124, 58, 237, 0.15);
+        }
+
+        .result-card.active::before {
+            transform: scaleY(1);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            gap: 12px;
+        }
+
+        .doc-name {
+            font-weight: 600;
+            font-size: 0.9375rem;
+            color: var(--text-primary);
+            line-height: 1.4;
+            flex: 1;
+            word-break: break-word;
+        }
+
+        .badges {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .badge {
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.6875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-genshin {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--badge-genshin);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-starrail {
+            background: rgba(59, 130, 246, 0.15);
+            color: var(--badge-starrail);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .badge-type {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .card-snippet {
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .card-meta {
+            display: flex;
+            gap: 12px;
+            margin-top: 10px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Detail Panel */
+        .detail-panel {
+            flex: 1;
+            background: var(--bg-primary);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-empty {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            padding: 40px;
+            text-align: center;
+        }
+
+        .detail-empty svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .detail-empty h3 {
+            font-size: 1.125rem;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        .detail-empty p {
+            font-size: 0.875rem;
+            max-width: 300px;
+        }
+
+        .detail-content {
+            padding: 24px 32px;
+            max-width: 900px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .detail-header {
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .detail-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+            line-height: 1.3;
+            color: var(--text-primary);
+        }
+
+        .detail-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .detail-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .detail-tag {
+            padding: 4px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.8125rem;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+        }
+
+        .detail-tag:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        /* Markdown Content */
+        .markdown-body {
+            font-size: 0.9375rem;
+            line-height: 1.8;
+            color: var(--text-primary);
+        }
+
+        .markdown-body h1,
+        .markdown-body h2,
+        .markdown-body h3,
+        .markdown-body h4,
+        .markdown-body h5,
+        .markdown-body h6 {
+            margin-top: 32px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.3;
+            color: var(--text-primary);
+        }
+
+        .markdown-body h1 {
+            font-size: 1.75rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .markdown-body h2 {
+            font-size: 1.5rem;
+        }
+
+        .markdown-body h3 {
+            font-size: 1.25rem;
+        }
+
+        .markdown-body p {
+            margin-bottom: 16px;
+        }
+
+        .markdown-body strong {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .markdown-body ul,
+        .markdown-body ol {
+            margin-bottom: 16px;
+            padding-left: 24px;
+        }
+
+        .markdown-body li {
+            margin-bottom: 8px;
+        }
+
+        .markdown-body ul li {
+            list-style-type: disc;
+        }
+
+        .markdown-body ol li {
+            list-style-type: decimal;
+        }
+
+        .markdown-body code {
+            background: var(--bg-tertiary);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.875em;
+            color: var(--accent-hover);
+        }
+
+        .markdown-body pre {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            margin-bottom: 16px;
+        }
+
+        .markdown-body pre code {
+            background: none;
+            padding: 0;
+            color: var(--text-primary);
+        }
+
+        .markdown-body blockquote {
+            border-left: 4px solid var(--accent);
+            padding-left: 16px;
+            margin: 16px 0;
+            color: var(--text-secondary);
+            font-style: italic;
+        }
+
+        .markdown-body hr {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 24px 0;
+        }
+
+        .markdown-body a {
+            color: var(--accent);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .markdown-body a:hover {
+            color: var(--accent-hover);
+            text-decoration: underline;
+        }
+
+        .markdown-body table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 16px;
+        }
+
+        .markdown-body th,
+        .markdown-body td {
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            text-align: left;
+        }
+
+        .markdown-body th {
+            background: var(--bg-secondary);
+            font-weight: 600;
+        }
+
+        .markdown-body tr:nth-child(even) {
+            background: var(--bg-secondary);
+        }
+
+        /* Loading State */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(13, 17, 23, 0.9);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .loading-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 16px;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        /* Skeleton Loading */
+        .skeleton {
+            background: linear-gradient(
+                90deg,
+                var(--bg-secondary) 25%,
+                var(--bg-tertiary) 50%,
+                var(--bg-secondary) 75%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 4px;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .skeleton-card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .skeleton-title {
+            height: 18px;
+            width: 70%;
+            margin-bottom: 12px;
+        }
+
+        .skeleton-badge {
+            height: 20px;
+            width: 60px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+        }
+
+        .skeleton-text {
+            height: 14px;
+            width: 100%;
+            margin-bottom: 8px;
+        }
+
+        .skeleton-text.short {
+            width: 60%;
+        }
+
+        /* No Results State */
+        .no-results {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .no-results svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+
+        .no-results h3 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        .no-results p {
+            font-size: 0.875rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .results-panel {
+                width: 45%;
+                min-width: 320px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+
+            .results-panel {
+                width: 100%;
+                max-width: none;
+                min-width: auto;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+                max-height: 50vh;
+            }
+
+            .detail-panel {
+                max-height: 50vh;
+            }
+
+            .search-wrapper {
+                max-width: none;
+            }
+
+            .filters {
+                width: 100%;
+            }
+
+            .filter-select {
+                flex: 1;
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-card {
+            animation: fadeIn 0.3s ease forwards;
+        }
+
+        .result-card:nth-child(1) { animation-delay: 0ms; }
+        .result-card:nth-child(2) { animation-delay: 50ms; }
+        .result-card:nth-child(3) { animation-delay: 100ms; }
+        .result-card:nth-child(4) { animation-delay: 150ms; }
+        .result-card:nth-child(5) { animation-delay: 200ms; }
+        .result-card:nth-child(6) { animation-delay: 250ms; }
+        .result-card:nth-child(7) { animation-delay: 300ms; }
+        .result-card:nth-child(8) { animation-delay: 350ms; }
+        .result-card:nth-child(9) { animation-delay: 400ms; }
+        .result-card:nth-child(10) { animation-delay: 450ms; }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="header-content">
+                <h1 class="title">MHY Text Database</h1>
+                <div class="search-section">
+                    <div class="search-wrapper">
+                        <input 
+                            type="text" 
+                            id="searchInput" 
+                            class="search-input" 
+                            placeholder="搜索文本内容..."
+                            autocomplete="off"
+                        >
+                        <button id="searchBtn" class="search-btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="filters">
+                        <select id="domainFilter" class="filter-select">
+                            <option value="">全部游戏</option>
+                            <option value="genshin">原神</option>
+                            <option value="starrail">星穹铁道</option>
+                        </select>
+                        <select id="typeFilter" class="filter-select">
+                            <option value="">全部类型</option>
+                            <option value="dialogue">对话</option>
+                            <option value="item">物品</option>
+                            <option value="quest">任务</option>
+                            <option value="book">书籍</option>
+                        </select>
+                        <select id="categoryFilter" class="filter-select">
+                            <option value="">全部分类</option>
+                            <option value="main">主线</option>
+                            <option value="side">支线</option>
+                            <option value="world">世界</option>
+                            <option value="event">活动</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Results Panel -->
+            <aside class="results-panel">
+                <div class="results-header">
+                    <span class="results-count">找到 <span id="resultCount">0</span> 个结果</span>
+                </div>
+                <div id="resultsList" class="results-list">
+                    <!-- Results will be inserted here -->
+                </div>
+            </aside>
+
+            <!-- Detail Panel -->
+            <section id="detailPanel" class="detail-panel">
+                <div class="detail-empty">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3>选择文档查看详情</h3>
+                    <p>在左侧搜索结果中点击任意卡片查看完整内容</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div style="text-align: center;">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">搜索中...</div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let currentQuery = '';
+        let currentDomain = '';
+        let currentType = '';
+        let currentCategory = '';
+        let selectedDocId = null;
+        let searchResults = [];
+
+        // DOM Elements
+        const searchInput = document.getElementById('searchInput');
+        const searchBtn = document.getElementById('searchBtn');
+        const domainFilter = document.getElementById('domainFilter');
+        const typeFilter = document.getElementById('typeFilter');
+        const categoryFilter = document.getElementById('categoryFilter');
+        const resultsList = document.getElementById('resultsList');
+        const resultCount = document.getElementById('resultCount');
+        const detailPanel = document.getElementById('detailPanel');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load initial data
+            performSearch();
+            
+            // Event listeners
+            searchInput.addEventListener('input', debounce((e) => {
+                currentQuery = e.target.value;
+                performSearch();
+            }, 300));
+
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    currentQuery = e.target.value;
+                    performSearch();
+                }
+            });
+
+            searchBtn.addEventListener('click', () => {
+                currentQuery = searchInput.value;
+                performSearch();
+            });
+
+            domainFilter.addEventListener('change', (e) => {
+                currentDomain = e.target.value;
+                performSearch();
+            });
+
+            typeFilter.addEventListener('change', (e) => {
+                currentType = e.target.value;
+                performSearch();
+            });
+
+            categoryFilter.addEventListener('change', (e) => {
+                currentCategory = e.target.value;
+                performSearch();
+            });
+        });
+
+        // Debounce utility
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Show loading state
+        function showLoading() {
+            loadingOverlay.classList.add('active');
+        }
+
+        // Hide loading state
+        function hideLoading() {
+            loadingOverlay.classList.remove('active');
+        }
+
+        // Show skeleton loading for results
+        function showSkeleton() {
+            const skeletonHTML = Array(5).fill(0).map(() => `
+                <div class="skeleton-card">
+                    <div class="skeleton skeleton-badge"></div>
+                    <div class="skeleton skeleton-title"></div>
+                    <div class="skeleton skeleton-text"></div>
+                    <div class="skeleton skeleton-text short"></div>
+                </div>
+            `).join('');
+            resultsList.innerHTML = skeletonHTML;
+        }
+
+        // Perform search
+        async function performSearch() {
+            showLoading();
+            showSkeleton();
+
+            try {
+                // Check if pywebview is available
+                if (typeof window.pywebview !== 'undefined' && window.pywebview.api) {
+                    const response = await window.pywebview.api.search(
+                        currentQuery,
+                        currentDomain,
+                        currentType,
+                        currentCategory,
+                        50,
+                        0
+                    );
+                    const data = JSON.parse(response);
+                    searchResults = data.results || [];
+                    renderResults(searchResults);
+                    resultCount.textContent = data.total || searchResults.length;
+                } else {
+                    // Fallback: Mock data for development/testing
+                    console.log('pywebview not available, using mock data');
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    const mockData = generateMockData();
+                    searchResults = mockData;
+                    renderResults(mockData);
+                    resultCount.textContent = mockData.length;
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsList.innerHTML = `
+                    <div class="no-results">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <h3>搜索出错</h3>
+                        <p>请稍后重试</p>
+                    </div>
+                `;
+                resultCount.textContent = '0';
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Generate mock data for development
+        function generateMockData() {
+            const domains = ['genshin', 'starrail'];
+            const types = ['dialogue', 'item', 'quest', 'book'];
+            const categories = ['main', 'side', 'world', 'event'];
+            
+            const mockDocs = [
+                {
+                    id: '1',
+                    name: '旅行者·空 - 角色对话',
+                    domain: 'genshin',
+                    type: 'dialogue',
+                    category: 'main',
+                    tags: ['主角', '蒙德', '风元素'],
+                    snippet: '「在旅途中，我们终将重逢。」空望着远方，眼神中充满了坚定与温柔。作为旅行者，他和妹妹荧来自世界之外，为了寻找失散的亲人而踏上提瓦特大陆的旅程。',
+                    content: `# 旅行者·空
+
+## 角色简介
+
+**旅行者·空** 是《原神》中的男主角，与妹妹荧一同来自世界之外。
+
+## 经典台词
+
+- 「在旅途中，我们终将重逢。」
+- 「我会找到她，无论付出什么代价。」
+- 「这个世界，也需要被拯救。」
+
+## 角色特点
+
+1. 可以使用多种元素力量
+2. 性格沉稳内敛
+3. 拥有异世界的知识和视角
+
+> 无论前方有多少困难，我都不会放弃寻找妹妹。
+
+| 属性 | 数值 |
+|------|------|
+| 元素 | 风/岩/雷/草/水/火/冰 |
+| 武器 | 单手剑 |
+| 稀有度 | ★★★★★ |`
+                },
+                {
+                    id: '2',
+                    name: '三月七 - 档案记录',
+                    domain: 'starrail',
+                    type: 'book',
+                    category: 'side',
+                    tags: ['列车组', '失忆', '冰属性'],
+                    snippet: '「我是谁？我从哪里来？」三月七总是这样问自己。她被冰封在宇宙中的六相冰里，被列车组解救后失去了所有记忆。现在的她，用相机记录每一天的美好。',
+                    content: `# 三月七
+
+## 角色档案
+
+**三月七**是星穹列车上的成员之一，也是列车组的一员。
+
+## 背景故事
+
+- 从六相冰中被解救
+- 失去了所有过去的记忆
+- 喜欢拍照记录生活
+
+## 性格特点
+
+**活泼开朗**，对世界充满好奇，虽然失去了记忆，但依然乐观地面对生活。
+
+## 技能
+
+1. 寒冰箭
+2. 冰晶护盾
+3. 终结技：绝对零度`
+                },
+                {
+                    id: '3',
+                    name: '派蒙 - 最好的伙伴',
+                    domain: 'genshin',
+                    type: 'dialogue',
+                    category: 'main',
+                    tags: ['向导', '应急食品', '飞行'],
+                    snippet: '「旅行者！那边有好吃的！」派蒙总是第一个发现美食。作为旅行者的向导和最好的伙伴，虽然经常被调侃是"应急食品"，但她的陪伴让旅途不再孤单。',
+                    content: `# 派蒙
+
+## 身份
+
+**派蒙**是旅行者在钓"鱼"时救起的神秘生物，现在是旅行者的向导和最好的伙伴。
+
+## 经典对话
+
+派蒙：「旅行者！那边有好吃的！」
+旅行者：「派蒙，你能不能不要只想着吃？」
+派蒙：「可是...那个闻起来真的很香嘛！」
+
+## 关于"应急食品"
+
+> 派蒙：「我才不是应急食品！我是你最好的伙伴！」
+
+## 特点
+
+- 会飞
+- 爱吃
+- 话痨
+- 对旅行者绝对忠诚`
+                },
+                {
+                    id: '4',
+                    name: '瓦尔特·杨 - 星核猎手',
+                    domain: 'starrail',
+                    type: 'quest',
+                    category: 'world',
+                    tags: ['星核猎手', '虚数属性', '伊甸之星'],
+                    snippet: '「守护这个世界的责任，我会承担到最后。」瓦尔特曾是逆熵盟主，现作为星穹列车的护卫，使用伊甸之星的力量战斗。他的经验和智慧是列车组宝贵的财富。',
+                    content: `# 瓦尔特·杨
+
+## 角色介绍
+
+**瓦尔特·杨**，星穹列车护卫，前逆熵盟主。
+
+## 武器
+
+**伊甸之星** - 第九神之键，操控重力的神之键。
+
+## 剧情任务
+
+### 第一章：启航
+
+瓦尔特与列车组一同踏上星穹之旅，寻找星核的真相。
+
+### 第二章：暗影
+
+揭示了瓦尔特过去的更多秘密，以及他与虚数空间的联系。
+
+## 技能
+
+| 技能名称 | 类型 | 效果 |
+|----------|------|------|
+| 重力压制 | 普攻 | 对单体造成伤害 |
+| 拟似黑洞 | 战技 | 范围伤害+减速 |
+| 伊甸之星 | 终结技 | 大范围高额伤害 |`
+                },
+                {
+                    id: '5',
+                    name: '温迪 - 风神巴巴托斯',
+                    domain: 'genshin',
+                    type: 'book',
+                    category: 'world',
+                    tags: ['七神', '蒙德', '自由'],
+                    snippet: '「被自由之神命令的自由，还能称之为自由吗？」温迪，或者说巴巴托斯，是蒙德的风神。他以吟游诗人的身份游历人间，用琴声和诗歌传播自由的精神。',
+                    content: `# 温迪
+
+## 身份
+
+**巴巴托斯** - 蒙德的风神，也是七神之一。
+
+## 语录
+
+> 「被自由之神命令的自由，还能称之为自由吗？」
+
+> 「愿风神护佑你。」
+
+## 历史
+
+- 从风精灵成为风神
+- 帮助温妮莎推翻贵族统治
+- 建立自由的蒙德
+
+## 角色故事
+
+温迪以吟游诗人的身份游历人间，用琴声和诗歌传播自由的精神。虽然看起来不正经，但在关键时刻总会出手相助。
+
+## 技能
+
+1. 神代射术
+2. 高天之歌
+3. 风神之诗`
+                }
+            ];
+
+            // Filter based on current filters
+            return mockDocs.filter(doc => {
+                const matchQuery = !currentQuery || 
+                    doc.name.toLowerCase().includes(currentQuery.toLowerCase()) ||
+                    doc.snippet.toLowerCase().includes(currentQuery.toLowerCase());
+                const matchDomain = !currentDomain || doc.domain === currentDomain;
+                const matchType = !currentType || doc.type === currentType;
+                const matchCategory = !currentCategory || doc.category === currentCategory;
+                return matchQuery && matchDomain && matchType && matchCategory;
+            });
+        }
+
+        // Render search results
+        function renderResults(results) {
+            if (results.length === 0) {
+                resultsList.innerHTML = `
+                    <div class="no-results">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h3>未找到结果</h3>
+                        <p>尝试调整搜索关键词或筛选条件</p>
+                    </div>
+                `;
+                return;
+            }
+
+            resultsList.innerHTML = results.map((doc, index) => `
+                <div class="result-card ${doc.id === selectedDocId ? 'active' : ''}" 
+                     data-id="${doc.id}" 
+                     onclick="selectDocument('${doc.id}')">
+                    <div class="card-header">
+                        <div class="doc-name">${escapeHtml(doc.name)}</div>
+                        <div class="badges">
+                            <span class="badge badge-${doc.domain === 'genshin' ? 'genshin' : 'starrail'}">
+                                ${doc.domain === 'genshin' ? '原神' : '星穹铁道'}
+                            </span>
+                            <span class="badge badge-type">${getTypeLabel(doc.type)}</span>
+                        </div>
+                    </div>
+                    <div class="card-snippet">${escapeHtml(doc.snippet)}</div>
+                    <div class="card-meta">
+                        <span>${getCategoryLabel(doc.category)}</span>
+                        ${doc.tags ? `<span>• ${doc.tags.slice(0, 2).join(', ')}</span>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Select document and show detail
+        function selectDocument(docId) {
+            selectedDocId = docId;
+            const doc = searchResults.find(d => d.id === docId);
+            
+            if (!doc) return;
+
+            // Update active state in results list
+            document.querySelectorAll('.result-card').forEach(card => {
+                card.classList.remove('active');
+                if (card.dataset.id === docId) {
+                    card.classList.add('active');
+                }
+            });
+
+            // Render detail panel
+            const markdownHTML = parseMarkdown(doc.content);
+            
+            detailPanel.innerHTML = `
+                <div class="detail-content">
+                    <div class="detail-header">
+                        <h2 class="detail-title">${escapeHtml(doc.name)}</h2>
+                        <div class="detail-meta">
+                            <span class="detail-badge badge-${doc.domain === 'genshin' ? 'genshin' : 'starrail'}">
+                                ${doc.domain === 'genshin' ? '原神' : '星穹铁道'}
+                            </span>
+                            <span class="detail-badge badge-type">${getTypeLabel(doc.type)}</span>
+                            <span class="detail-badge badge-type">${getCategoryLabel(doc.category)}</span>
+                        </div>
+                        ${doc.tags ? `
+                            <div class="detail-tags">
+                                ${doc.tags.map(tag => `<span class="detail-tag">${escapeHtml(tag)}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                    <div class="markdown-body">
+                        ${markdownHTML}
+                    </div>
+                </div>
+            `;
+
+            // Scroll detail panel to top
+            detailPanel.scrollTop = 0;
+        }
+
+        // Parse markdown to HTML
+        function parseMarkdown(markdown) {
+            if (!markdown) return '';
+
+            let html = markdown
+                // Escape HTML
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                // Headers
+                .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+                .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+                .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+                // Bold
+                .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                // Italic
+                .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                // Code blocks
+                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+                // Inline code
+                .replace(/`(.+?)`/g, '<code>$1</code>')
+                // Blockquote
+                .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+                // Horizontal rule
+                .replace(/^---$/gm, '<hr>')
+                // Tables
+                .replace(/\|(.+)\|/g, (match, content) => {
+                    const cells = content.split('|').map(c => c.trim()).filter(c => c);
+                    if (cells.every(c => c.match(/^[-:]+$/))) return '';
+                    return '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+                })
+                // Lists
+                .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+                .replace(/^- (.+)$/gm, '<li>$1</li>')
+                // Links
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+                // Paragraphs
+                .replace(/\n\n/g, '</p><p>')
+                // Line breaks
+                .replace(/\n/g, '<br>');
+
+            // Wrap in paragraph if not already wrapped
+            if (!html.startsWith('<')) {
+                html = '<p>' + html + '</p>';
+            }
+
+            // Wrap lists
+            html = html.replace(/(<li>.+<\/li>)/g, '<ul>$1</ul>');
+
+            // Clean up empty paragraphs
+            html = html.replace(/<p><\/p>/g, '');
+
+            return html;
+        }
+
+        // Get type label
+        function getTypeLabel(type) {
+            const labels = {
+                'dialogue': '对话',
+                'item': '物品',
+                'quest': '任务',
+                'book': '书籍'
+            };
+            return labels[type] || type;
+        }
+
+        // Get category label
+        function getCategoryLabel(category) {
+            const labels = {
+                'main': '主线',
+                'side': '支线',
+                'world': '世界',
+                'event': '活动'
+            };
+            return labels[category] || category;
+        }
+
+        // Escape HTML
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Expose selectDocument to global scope for onclick handlers
+        window.selectDocument = selectDocument;
+    </script>
+</body>
+</html>

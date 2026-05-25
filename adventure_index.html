@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文字冒险</title>
+<style>
+:root {
+  --bg-deep: #06080f;
+  --bg-base: #0b0f1a;
+  --glass-bg: rgba(255,255,255,0.025);
+  --glass-bg-hover: rgba(255,255,255,0.05);
+  --border-default: rgba(255,255,255,0.09);
+  --border-accent: rgba(139,92,246,0.45);
+  --text-primary: #e8ecf4;
+  --text-secondary: #8b95a8;
+  --accent: #8b5cf6;
+  --accent-light: #c4b5fd;
+  --accent-glow: rgba(139,92,246,0.18);
+  --cyan: #22d3ee;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font: 15px/1.8 "Microsoft YaHei","PingFang SC","Segoe UI",sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 15% 10%, rgba(139,92,246,0.07) 0%, transparent 60%),
+              radial-gradient(ellipse 70% 50% at 85% 85%, rgba(34,211,238,0.04) 0%, transparent 55%);
+  pointer-events: none; z-index: 0;
+}
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.2); border-radius: 10px; }
+
+.header {
+  background: rgba(11,15,26,0.75);
+  backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border-default);
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  position: relative; z-index: 10;
+}
+.header h1 {
+  font-size: 18px; font-weight: 700;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light), var(--cyan));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.header-controls { display: flex; gap: 8px; align-items: center; }
+.header-controls select, .header-controls button {
+  padding: 7px 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px; font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.header-controls select option {
+  background: #0b0f1a; color: #e8ecf4;
+}
+.header-controls button:hover, .header-controls select:hover {
+  border-color: var(--border-accent);
+  background: var(--glass-bg-hover);
+}
+.header-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.main {
+  flex: 1; overflow-y: auto; padding: 24px 28px;
+  position: relative; z-index: 1;
+}
+.narrative-block {
+  margin-bottom: 20px;
+  animation: fadeIn 0.5s ease-out;
+}
+.narrative-text {
+  color: var(--text-primary);
+  line-height: 2;
+  letter-spacing: 0.03em;
+}
+
+.options-bar {
+  background: rgba(11,15,26,0.92);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-default);
+  padding: 16px 28px;
+  display: flex; gap: 10px;
+  flex-wrap: wrap;
+  z-index: 10;
+}
+.option-btn {
+  flex: 1; min-width: 140px;
+  padding: 12px 18px;
+  background: var(--glass-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 14px; font-family: inherit;
+  cursor: pointer;
+  transition: all 0.25s;
+  text-align: left;
+  line-height: 1.5;
+}
+.option-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--glass-bg-hover);
+  box-shadow: 0 0 20px var(--accent-glow);
+  transform: translateY(-1px);
+}
+.option-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.option-btn .num { color: var(--accent-light); font-weight: 600; margin-right: 6px; }
+
+@keyframes fadeIn {
+  from { opacity:0; transform:translateY(8px); }
+  to { opacity:1; transform:translateY(0); }
+}
+.loading-spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-right: 6px; vertical-align: middle;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, var(--accent), #6d28d9);
+  color: #fff;
+  padding: 10px 24px; border-radius: var(--radius-md);
+  font-size: 13px; z-index: 9999;
+  box-shadow: 0 4px 24px rgba(139,92,246,0.35);
+  animation: fadeIn 0.3s;
+}
+
+.save-dialog {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.save-dialog-content {
+  background: var(--bg-base);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg); padding: 24px;
+  min-width: 320px;
+}
+.save-dialog h3 { margin-bottom: 16px; color: var(--text-primary); }
+.save-dialog input, .save-dialog textarea {
+  width: 100%; padding: 10px;
+  background: var(--glass-bg); color: var(--text-primary);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  font-size: 14px; font-family: inherit;
+  margin-bottom: 12px;
+}
+.save-dialog button {
+  padding: 8px 20px;
+  background: var(--glass-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  cursor: pointer; font-family: inherit;
+  margin-right: 8px;
+}
+.save-dialog button:hover { border-color: var(--accent); }
+
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 60vh; color: #4a5568;
+}
+.empty-state p { margin-top: 12px; font-size: 14px; }
+
+.save-list-item {
+  padding: 10px 14px; margin: 6px 0;
+  background: var(--glass-bg);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.save-list-item:hover { border-color: var(--accent); }
+.save-list-item .name { font-weight: 600; }
+.save-list-item .actions { display: flex; gap: 6px; }
+.save-list-item .actions button {
+  padding: 4px 10px; font-size: 12px;
+  background: transparent; border: 1px solid var(--border-default);
+  border-radius: 4px; color: var(--text-secondary); cursor: pointer;
+}
+.save-list-item .actions button:hover { border-color: #ef4444; color: #ef4444; }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>提瓦特/银河 文字冒险</h1>
+  <div class="header-controls">
+    <select id="world-select">
+      <option value="gi">原神 (GI)</option>
+      <option value="hsr">崩坏：星穹铁道 (HSR)</option>
+    </select>
+    <button id="btn-new" onclick="startGame()">新游戏</button>
+    <button id="btn-save" onclick="showSaveDialog()" disabled>保存</button>
+    <button id="btn-load" onclick="showLoadDialog()">加载</button>
+  </div>
+</div>
+
+<div class="main" id="story-area">
+  <div class="empty-state" id="empty-state">
+    <p>选择一个世界，开始你的冒险</p>
+  </div>
+</div>
+
+<div class="options-bar hidden" id="options-bar"></div>
+
+<div class="save-dialog hidden" id="save-dialog" onclick="if(event.target===this)hideSaveDialog()">
+  <div class="save-dialog-content">
+    <h3>保存进度</h3>
+    <input type="text" id="save-name" placeholder="存档名称...">
+    <button onclick="doSave()">保存</button>
+    <button onclick="hideSaveDialog()">取消</button>
+  </div>
+</div>
+
+<div class="save-dialog hidden" id="load-dialog" onclick="if(event.target===this)hideLoadDialog()">
+  <div class="save-dialog-content" style="min-width:400px;">
+    <h3>加载存档</h3>
+    <div id="save-list"></div>
+    <button onclick="hideLoadDialog()" style="margin-top:12px;">取消</button>
+  </div>
+</div>
+
+<script>
+var gameState = {
+  world: null, character: null, saveName: null, turnCount: 0,
+  isLoading: false, history: []
+};
+
+function showToast(msg) {
+  var t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(function(){ t.remove(); }, 2500);
+}
+
+async function api(path, body) {
+  var opts = { headers: { 'Content-Type': 'application/json' } };
+  if (body) { opts.method = 'POST'; opts.body = JSON.stringify(body); }
+  var resp = await fetch(path, opts);
+  if (!resp.ok) {
+    var err = await resp.json().catch(function(){ return {}; });
+    throw new Error(err.error || 'HTTP ' + resp.status);
+  }
+  return resp.json();
+}
+
+function renderNarrative(text) {
+  var div = document.createElement('div');
+  div.className = 'narrative-block';
+  var p = document.createElement('div');
+  p.className = 'narrative-text';
+  var parts = text.split('\n\n').filter(function(s){ return s.trim(); });
+  p.innerHTML = parts.map(function(s){
+    return '<p style="margin-bottom:12px;">' + s.replace(/\n/g, '<br>') + '</p>';
+  }).join('');
+  div.appendChild(p);
+  return div;
+}
+
+function renderOptions(options) {
+  var bar = document.getElementById('options-bar');
+  bar.innerHTML = '';
+  if (gameState.isLoading) {
+    bar.innerHTML = '<span style="color:var(--text-secondary)"><span class="loading-spinner"></span> AI 正在书写故事...</span>';
+    bar.classList.remove('hidden');
+    return;
+  }
+  if (!options || options.length === 0) {
+    bar.innerHTML = '<span style="color:#f87171">错误：未收到选项</span>';
+    bar.classList.remove('hidden');
+    return;
+  }
+  options.forEach(function(opt, i) {
+    var btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.innerHTML = '<span class="num">' + (i+1) + '.</span>' + opt.replace(/^\d+[.、]?\s*/, '');
+    btn.onclick = function(){ sendAction(opt); };
+    bar.appendChild(btn);
+  });
+  bar.classList.remove('hidden');
+}
+
+async function startGame() {
+  if (gameState.isLoading) return;
+  gameState.isLoading = true;
+  document.getElementById('btn-new').disabled = true;
+  document.getElementById('btn-save').disabled = true;
+  var world = document.getElementById('world-select').value;
+  var character = world === 'gi' ? '旅行者' : '开拓者';
+  var storyArea = document.getElementById('story-area');
+  var empty = document.getElementById('empty-state');
+  storyArea.innerHTML = '';
+  storyArea.appendChild(empty);
+  renderOptions([]);
+
+  try {
+    var data = await api('/api/adventure/start', { world: world, character: character });
+    gameState.world = world;
+    gameState.character = character;
+    gameState.turnCount = 1;
+    gameState.history = [];
+    empty.classList.add('hidden');
+    storyArea.innerHTML = '';
+    storyArea.appendChild(renderNarrative(data.narrative));
+    storyArea.scrollTop = storyArea.scrollHeight;
+    gameState.isLoading = false;
+    gameState.history.push({ narrative: data.narrative, options: data.options });
+    renderOptions(data.options);
+    document.getElementById('btn-save').disabled = false;
+  } catch (e) {
+    gameState.isLoading = false;
+    showToast('启动失败: ' + e.message);
+  }
+  document.getElementById('btn-new').disabled = false;
+}
+
+async function sendAction(choice) {
+  if (gameState.isLoading) return;
+  gameState.isLoading = true;
+  document.getElementById('btn-save').disabled = true;
+  renderOptions([]);
+
+  try {
+    var data = await api('/api/adventure/action', { choice: choice, state: gameState.storyState || '' });
+    var storyArea = document.getElementById('story-area');
+    storyArea.appendChild(renderNarrative(data.narrative));
+    storyArea.scrollTop = storyArea.scrollHeight;
+    gameState.turnCount++;
+    gameState.isLoading = false;
+    gameState.history.push({ narrative: data.narrative, options: data.options });
+    renderOptions(data.options);
+    document.getElementById('btn-save').disabled = false;
+  } catch (e) {
+    gameState.isLoading = false;
+    showToast('请求失败: ' + e.message);
+    renderOptions(['1. 重试', '2. 回到开头', '3. 观察四周', '4. 呼喊求助']);
+  }
+}
+
+function showSaveDialog() {
+  document.getElementById('save-dialog').classList.remove('hidden');
+  document.getElementById('save-name').value = gameState.saveName || '';
+  document.getElementById('save-name').focus();
+  document.getElementById('save-name').select();
+}
+
+function hideSaveDialog() {
+  document.getElementById('save-dialog').classList.add('hidden');
+}
+
+function doSave() {
+  var name = document.getElementById('save-name').value.trim();
+  if (!name) { showToast('请输入存档名称'); return; }
+  hideSaveDialog();
+  var saveData = {
+    world: gameState.world,
+    character: gameState.character,
+    turnCount: gameState.turnCount,
+    history: gameState.history,
+    savedAt: new Date().toISOString(),
+  };
+  localStorage.setItem('adv_' + name, JSON.stringify(saveData));
+  gameState.saveName = name;
+  updateSaveSelect();
+  showToast('已保存到浏览器');
+}
+
+function showLoadDialog() {
+  var dialog = document.getElementById('load-dialog');
+  var list = document.getElementById('save-list');
+  dialog.classList.remove('hidden');
+  list.innerHTML = '';
+  var saves = [];
+  for (var i = 0; i < localStorage.length; i++) {
+    var key = localStorage.key(i);
+    if (key && key.indexOf('adv_') === 0) {
+      try {
+        var sd = JSON.parse(localStorage.getItem(key));
+        saves.push({ name: key.slice(4), world: sd.world, turnCount: sd.turnCount, savedAt: sd.savedAt });
+      } catch(e) {}
+    }
+  }
+  saves.sort(function(a,b){ return b.savedAt.localeCompare(a.savedAt); });
+  if (saves.length === 0) {
+    list.innerHTML = '<p style="color:#4a5568;text-align:center;padding:20px;">暂无存档</p>';
+    return;
+  }
+  list.innerHTML = saves.map(function(s){
+    var wn = s.world === 'gi' ? '原神' : '崩铁';
+    var esc = s.name.replace(/'/g, "\\'");
+    return '<div class="save-list-item">' +
+      '<span class="name">' + esc + ' <span style="color:#8b95a8;font-weight:normal;font-size:12px;">' + wn + ' | ' + s.turnCount + '轮</span></span>' +
+      '<span class="actions">' +
+      '<button onclick="loadGame(\'' + esc + '\')">加载</button>' +
+      '<button onclick="deleteSave(\'' + esc + '\')">删除</button>' +
+      '</span></div>';
+  }).join('');
+}
+
+function hideLoadDialog() {
+  document.getElementById('load-dialog').classList.add('hidden');
+}
+
+async function loadGame(name) {
+  hideLoadDialog();
+  try {
+    var raw = localStorage.getItem('adv_' + name);
+    if (!raw) { showToast('存档不存在'); return; }
+    var saveData = JSON.parse(raw);
+    gameState.world = saveData.world;
+    gameState.character = saveData.character;
+    gameState.saveName = name;
+    gameState.turnCount = saveData.turnCount;
+    gameState.history = saveData.history.slice();
+    document.getElementById('world-select').value = saveData.world;
+    document.getElementById('btn-save').disabled = false;
+
+    var restoreHistory = saveData.history.map(function(t) {
+      return { narrative: t.narrative, choice: t.options ? t.options[0] : '' };
+    });
+    api('/api/adventure/restore', { world: saveData.world, character: saveData.character, history: restoreHistory.slice(-5) }).catch(function(){});
+
+    document.getElementById('empty-state').classList.add('hidden');
+    var storyArea = document.getElementById('story-area');
+    storyArea.innerHTML = '';
+
+    for (var i = 0; i < gameState.history.length; i++) {
+      storyArea.appendChild(renderNarrative(gameState.history[i].narrative));
+    }
+    storyArea.scrollTop = storyArea.scrollHeight;
+
+    if (gameState.history.length > 0) {
+      var last = gameState.history[gameState.history.length - 1];
+      renderOptions(last.options);
+    }
+    showToast('已加载');
+  } catch (e) {
+    showToast('加载失败: ' + e.message);
+  }
+}
+
+function deleteSave(name) {
+  if (!confirm('确定删除存档？')) return;
+  localStorage.removeItem('adv_' + name);
+  showToast('已删除');
+  showLoadDialog();
+}
+
+function updateSaveSelect() {}
+</script>
+</body>
+</html>
