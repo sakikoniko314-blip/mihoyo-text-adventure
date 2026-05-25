@@ -41,20 +41,28 @@ DEEPSEEK_CONFIG = {
 
 
 def load_user_config():
-    cfg_path = Path(__file__).parent / "qq_bot" / "config.json"
-    if cfg_path.exists():
-        try:
-            cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-            ds = cfg.get("deepseek", {})
-            if ds.get("api_key"):
-                DEEPSEEK_CONFIG["api_key"] = ds["api_key"]
-            if ds.get("base_url"):
-                DEEPSEEK_CONFIG["base_url"] = ds.get("base_url").rstrip("/")
-        except Exception:
-            pass
-    logger.info("Config: model=%s temp=%.1f max_tokens=%d base_url=%s",
+    for cfg_path in [
+        Path(__file__).parent / "adventure_config.json",
+        Path(__file__).parent / "qq_bot" / "config.json",
+    ]:
+        if cfg_path.exists():
+            try:
+                cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+                ds = cfg.get("deepseek", {})
+                if ds.get("api_key"):
+                    DEEPSEEK_CONFIG["api_key"] = ds["api_key"]
+                if ds.get("base_url"):
+                    DEEPSEEK_CONFIG["base_url"] = ds.get("base_url").rstrip("/")
+                break
+            except Exception:
+                pass
+    if DEEPSEEK_CONFIG["api_key"] == "sk-your-key-here":
+        env_key = os.environ.get("DEEPSEEK_API_KEY", "")
+        if env_key:
+            DEEPSEEK_CONFIG["api_key"] = env_key
+    logger.info("Config: model=%s temp=%.1f max_tokens=%d",
                 DEEPSEEK_CONFIG["model"], DEEPSEEK_CONFIG["temperature"],
-                DEEPSEEK_CONFIG["max_tokens"], DEEPSEEK_CONFIG["base_url"])
+                DEEPSEEK_CONFIG["max_tokens"])
 
 
 CHARACTERS = {"gi": [], "hsr": []}

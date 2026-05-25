@@ -1,4 +1,5 @@
-# Sensitive
+# Config (contains API keys)
+adventure_config.json
 qq_bot/config.json
 qq_bot/memory.json
 
