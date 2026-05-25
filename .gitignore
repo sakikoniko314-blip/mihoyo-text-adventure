@@ -17,3 +17,5 @@ __pycache__/
 
 # Logs
 *.log
+tunnel_output.txt
+tunnel_url.txt
