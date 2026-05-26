@@ -6,47 +6,60 @@
 <title>文字冒险</title>
 <style>
 :root {
-  --bg-deep: #06080f;
-  --bg-base: #0b0f1a;
-  --glass-bg: rgba(255,255,255,0.025);
-  --glass-bg-hover: rgba(255,255,255,0.05);
-  --border-default: rgba(255,255,255,0.09);
-  --border-accent: rgba(139,92,246,0.45);
+  --bg-deep: #0a0d18;
+  --bg-base: #0f1424;
+  --glass-bg: rgba(255,255,255,0.04);
+  --glass-bg-hover: rgba(255,255,255,0.08);
+  --border-default: rgba(255,255,255,0.08);
+  --border-accent: rgba(139,92,246,0.5);
   --text-primary: #e8ecf4;
-  --text-secondary: #8b95a8;
+  --text-secondary: #8c96b0;
   --accent: #8b5cf6;
   --accent-light: #c4b5fd;
-  --accent-glow: rgba(139,92,246,0.18);
+  --accent-glow: rgba(139,92,246,0.2);
   --cyan: #22d3ee;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --cyan-glow: rgba(34,211,238,0.12);
+  --gold: #f59e0b;
+  --gold-glow: rgba(245,158,11,0.12);
+  --rose: #f43f5e;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
 body {
-  font: 15px/1.8 "Microsoft YaHei","PingFang SC","Segoe UI",sans-serif;
+  font: 15px/1.9 "PingFang SC","Microsoft YaHei","Segoe UI",sans-serif;
   background: var(--bg-deep);
   color: var(--text-primary);
-  height: 100vh;
+  height: 100vh; height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
 }
-body::before {
-  content: '';
+canvas#particles {
   position: fixed; inset: 0;
-  background: radial-gradient(ellipse 80% 60% at 15% 10%, rgba(139,92,246,0.07) 0%, transparent 60%),
-              radial-gradient(ellipse 70% 50% at 85% 85%, rgba(34,211,238,0.04) 0%, transparent 55%);
   pointer-events: none; z-index: 0;
 }
-::-webkit-scrollbar { width: 5px; }
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: radial-gradient(ellipse 70% 50% at 20% 15%, rgba(139,92,246,0.1) 0%, transparent 50%),
+              radial-gradient(ellipse 60% 40% at 80% 75%, rgba(34,211,238,0.07) 0%, transparent 45%),
+              radial-gradient(ellipse 50% 35% at 50% 50%, rgba(245,158,11,0.04) 0%, transparent 55%);
+  pointer-events: none; z-index: 0;
+}
+::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.2); border-radius: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.15); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(139,92,246,0.3); }
 
 .header {
-  background: rgba(11,15,26,0.75);
-  backdrop-filter: blur(24px);
+  background: rgba(15,20,36,0.9);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
   border-bottom: 1px solid var(--border-default);
-  padding: 14px 20px;
+  padding: 12px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -54,189 +67,406 @@ body::before {
   position: relative; z-index: 10;
 }
 .header h1 {
-  font-size: 18px; font-weight: 700;
-  background: linear-gradient(135deg, var(--accent), var(--accent-light), var(--cyan));
+  font-size: 17px; font-weight: 700;
+  background: linear-gradient(135deg, #8b5cf6 0%, #c4b5fd 40%, #22d3ee 80%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
   background-clip: text;
+  letter-spacing: 0.02em;
 }
-.header-controls { display: flex; gap: 8px; align-items: center; }
-.header-controls select, .header-controls button {
+.header-controls { display: flex; gap: 6px; align-items: center; }
+.header-controls button {
   padding: 7px 14px;
   background: var(--glass-bg);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
   font-size: 13px; font-family: inherit;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
-.header-controls select option {
-  background: #0b0f1a; color: #e8ecf4;
-}
-.header-controls button:hover, .header-controls select:hover {
+.header-controls button:hover {
   border-color: var(--border-accent);
+  color: var(--text-primary);
   background: var(--glass-bg-hover);
 }
-.header-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+.header-controls button:disabled { opacity: 0.35; cursor: not-allowed; pointer-events: none; }
 
 .main {
-  flex: 1; overflow-y: auto; padding: 24px 28px;
+  flex: 1; overflow-y: auto;
+  padding: 32px 32px 32px 52px;
   position: relative; z-index: 1;
+  scroll-behavior: smooth;
 }
+
 .narrative-block {
-  margin-bottom: 20px;
-  animation: fadeIn 0.5s ease-out;
+  margin-bottom: 28px;
+  animation: fadeUpIn 0.6s ease-out;
+  scroll-margin-top: 20px;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, rgba(139,92,246,0.04), rgba(34,211,238,0.02));
+  border: 1px solid rgba(255,255,255,0.05);
+  border-left: 3px solid rgba(139,92,246,0.35);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 .narrative-text {
   color: var(--text-primary);
   line-height: 2;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
+}
+.narrative-text p {
+  margin-bottom: 14px;
+}
+.narrative-text strong {
+  color: var(--accent-light);
+  font-weight: 600;
+}
+@keyframes fadeUpIn {
+  from { opacity:0; transform:translateY(12px); }
+  to { opacity:1; transform:translateY(0); }
+}
+@keyframes type-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+.typewriter-cursor::after {
+  content: '|';
+  animation: type-cursor 0.8s infinite;
+  color: var(--accent-light);
+  font-weight: 100;
 }
 
 .options-bar {
-  background: rgba(11,15,26,0.92);
-  backdrop-filter: blur(20px);
-  border-top: 1px solid var(--border-default);
-  padding: 16px 28px;
+  background: rgba(15,20,36,0.96);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding: 18px 28px;
   display: flex; gap: 10px;
   flex-wrap: wrap;
   z-index: 10;
+  position: relative;
+}
+.options-bar::before {
+  content: '';
+  position: absolute; top: -1px; left: 10%; right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(139,92,246,0.3), transparent);
 }
 .option-btn {
   flex: 1; min-width: 140px;
   padding: 12px 18px;
-  background: var(--glass-bg);
-  border: 1px solid var(--border-default);
+  background: rgba(139,92,246,0.06);
+  border: 1px solid rgba(139,92,246,0.15);
   border-radius: var(--radius-md);
   color: var(--text-primary);
   font-size: 14px; font-family: inherit;
   cursor: pointer;
-  transition: all 0.25s;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
   text-align: left;
   line-height: 1.5;
+  position: relative;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.option-btn::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(139,92,246,0.08), rgba(34,211,238,0.04));
+  opacity: 0; transition: opacity 0.3s;
 }
 .option-btn:hover:not(:disabled) {
   border-color: var(--accent);
-  background: var(--glass-bg-hover);
-  box-shadow: 0 0 20px var(--accent-glow);
-  transform: translateY(-1px);
+  background: rgba(139,92,246,0.08);
+  box-shadow: 0 0 30px var(--accent-glow), inset 0 1px 0 rgba(139,92,246,0.1);
+  transform: translateY(-2px);
 }
-.option-btn:disabled { opacity: 0.35; cursor: not-allowed; }
-.option-btn .num { color: var(--accent-light); font-weight: 600; margin-right: 6px; }
+.option-btn:hover:not(:disabled)::after { opacity: 1; }
+.option-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+.option-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+.option-btn .num {
+  color: var(--accent-light); font-weight: 700; margin-right: 8px;
+  opacity: 0.7;
+}
 
-@keyframes fadeIn {
-  from { opacity:0; transform:translateY(8px); }
-  to { opacity:1; transform:translateY(0); }
+.option-btn.ending-btn {
+  background: linear-gradient(135deg, rgba(245,158,11,0.1), rgba(139,92,246,0.08));
+  border-color: rgba(245,158,11,0.35);
 }
+.option-btn.ending-btn:hover:not(:disabled) {
+  border-color: var(--gold);
+  box-shadow: 0 0 30px var(--gold-glow);
+  background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(139,92,246,0.12));
+}
+.option-btn.ending-btn .num { color: var(--gold); }
+
+.ending-screen {
+  text-align: center; padding: 40px 20px;
+  animation: fadeUpIn 0.8s ease-out;
+}
+.ending-screen h2 {
+  font-size: 22px; margin-bottom: 20px;
+  background: linear-gradient(135deg, var(--gold), var(--accent-light));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.ending-screen .restart-btn {
+  padding: 14px 40px; font-size: 16px;
+  background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(245,158,11,0.1));
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-md); color: var(--accent-light);
+  cursor: pointer; font-family: inherit;
+  transition: all 0.3s;
+}
+.ending-screen .restart-btn:hover {
+  background: linear-gradient(135deg, rgba(139,92,246,0.35), rgba(245,158,11,0.18));
+  box-shadow: 0 0 30px var(--accent-glow);
+}
+
+.option-btn:nth-child(1) { animation: fadeUpIn 0.4s 0.1s ease-out backwards; }
+.option-btn:nth-child(2) { animation: fadeUpIn 0.4s 0.15s ease-out backwards; }
+.option-btn:nth-child(3) { animation: fadeUpIn 0.4s 0.2s ease-out backwards; }
+.option-btn:nth-child(4) { animation: fadeUpIn 0.4s 0.25s ease-out backwards; }
+
+.loading-indicator {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--text-secondary); font-size: 14px;
+  animation: fadeUpIn 0.3s ease-out;
+}
+.loading-dot-wave {
+  display: flex; gap: 3px;
+}
+.loading-dot-wave span {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--accent-light);
+  animation: dotWave 1.2s infinite ease-in-out;
+}
+.loading-dot-wave span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dot-wave span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dotWave {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.3); }
+}
+
 .loading-spinner {
-  display: inline-block; width: 16px; height: 16px;
+  display: inline-block; width: 18px; height: 18px;
   border: 2px solid var(--border-default);
   border-top-color: var(--accent);
   border-radius: 50%;
-  animation: spin 0.6s linear infinite;
-  margin-right: 6px; vertical-align: middle;
+  animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .toast {
-  position: fixed; bottom: 24px; left: 50%;
+  position: fixed; bottom: 28px; left: 50%;
   transform: translateX(-50%);
-  background: linear-gradient(135deg, var(--accent), #6d28d9);
+  background: linear-gradient(135deg, rgba(139,92,246,0.95), rgba(109,40,217,0.95));
+  backdrop-filter: blur(10px);
   color: #fff;
-  padding: 10px 24px; border-radius: var(--radius-md);
-  font-size: 13px; z-index: 9999;
-  box-shadow: 0 4px 24px rgba(139,92,246,0.35);
-  animation: fadeIn 0.3s;
+  padding: 10px 28px; border-radius: var(--radius-md);
+  font-size: 13px; font-weight: 500; z-index: 9999;
+  box-shadow: 0 8px 32px rgba(139,92,246,0.3);
+  animation: toastIn 0.35s cubic-bezier(0.4,0,0.2,1);
+  pointer-events: none;
+}
+@keyframes toastIn {
+  from { opacity:0; transform:translateX(-50%) translateY(12px); }
+  to { opacity:1; transform:translateX(-50%) translateY(0); }
 }
 
 .save-dialog {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex; align-items: center; justify-content: center;
   z-index: 100;
+  animation: fadeIn 0.2s ease-out;
 }
+@keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
 .save-dialog-content {
-  background: var(--bg-base);
+  background: #0d1020;
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg); padding: 24px;
-  min-width: 320px;
+  border-radius: var(--radius-lg); padding: 28px;
+  min-width: 340px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 40px var(--accent-glow);
+  animation: scaleIn 0.25s cubic-bezier(0.4,0,0.2,1);
 }
-.save-dialog h3 { margin-bottom: 16px; color: var(--text-primary); }
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.save-dialog h3 {
+  margin-bottom: 18px; color: var(--text-primary);
+  font-size: 16px; font-weight: 600;
+}
 .save-dialog input, .save-dialog textarea {
-  width: 100%; padding: 10px;
-  background: var(--glass-bg); color: var(--text-primary);
+  width: 100%; padding: 10px 14px;
+  background: rgba(255,255,255,0.04); color: var(--text-primary);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   font-size: 14px; font-family: inherit;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
+  transition: border-color 0.2s;
+  outline: none;
 }
-.save-dialog button {
-  padding: 8px 20px;
-  background: var(--glass-bg);
-  border: 1px solid var(--border-default);
+.save-dialog input:focus { border-color: var(--accent); }
+.save-dialog .dialog-btn {
+  padding: 9px 22px;
+  background: rgba(139,92,246,0.12);
+  border: 1px solid rgba(139,92,246,0.25);
+  border-radius: var(--radius-sm);
+  color: var(--accent-light);
+  cursor: pointer; font-family: inherit;
+  font-size: 14px; margin-right: 8px;
+  transition: all 0.2s;
+}
+.save-dialog .dialog-btn:hover { background: rgba(139,92,246,0.22); }
+.save-dialog .dialog-btn.cancel {
+  background: transparent; border-color: var(--border-default);
+  color: var(--text-secondary);
+}
+.save-dialog .dialog-btn.cancel:hover { border-color: var(--text-secondary); }
+
+.newgame-btn {
+  flex: 1; padding: 18px;
+  background: rgba(139,92,246,0.06);
+  border: 1px solid rgba(139,92,246,0.15);
   border-radius: var(--radius-md);
   color: var(--text-primary);
-  cursor: pointer; font-family: inherit;
-  margin-right: 8px;
+  font-size: 16px; font-family: inherit; cursor: pointer;
+  transition: all 0.3s;
 }
-.save-dialog button:hover { border-color: var(--accent); }
+.newgame-btn:hover {
+  background: rgba(139,92,246,0.14);
+  border-color: var(--accent);
+  box-shadow: 0 0 24px var(--accent-glow);
+}
+.newgame-btn:nth-child(2):hover {
+  background: rgba(34,211,238,0.12);
+  border-color: var(--cyan);
+  box-shadow: 0 0 24px var(--cyan-glow);
+}
+
+.ng-loc-btn {
+  width: 100%; padding: 11px 16px; margin-bottom: 5px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 14px; font-family: inherit; cursor: pointer;
+  transition: all 0.2s;
+}
+.ng-loc-btn:hover {
+  border-color: var(--accent);
+  background: rgba(139,92,246,0.08);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
 
 .empty-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  height: 60vh; color: #4a5568;
+  height: 60vh; color: #404860;
+  animation: fadeUpIn 0.8s ease-out;
 }
-.empty-state p { margin-top: 12px; font-size: 14px; }
+.empty-state p { margin-top: 16px; font-size: 15px; letter-spacing: 0.05em; color: #5a6490; }
 
 .save-list-item {
-  padding: 10px 14px; margin: 6px 0;
-  background: var(--glass-bg);
+  padding: 12px 16px; margin: 6px 0;
+  background: rgba(255,255,255,0.02);
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   display: flex; justify-content: space-between; align-items: center;
+  transition: all 0.2s;
 }
-.save-list-item:hover { border-color: var(--accent); }
+.save-list-item:hover { border-color: var(--accent); background: rgba(139,92,246,0.05); }
 .save-list-item .name { font-weight: 600; }
 .save-list-item .actions { display: flex; gap: 6px; }
 .save-list-item .actions button {
   padding: 4px 10px; font-size: 12px;
   background: transparent; border: 1px solid var(--border-default);
   border-radius: 4px; color: var(--text-secondary); cursor: pointer;
+  transition: all 0.2s;
 }
 .save-list-item .actions button:hover { border-color: #ef4444; color: #ef4444; }
 
 .hidden { display: none !important; }
+
+.turn-timeline {
+  position: fixed; left: 0; top: 0; bottom: 0; z-index: 20;
+  width: 40px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 0; overflow: visible;
+}
+.turn-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  margin: 7px 0; cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+  flex-shrink: 0;
+  position: relative;
+}
+.turn-dot:hover { background: var(--accent-light); transform: scale(1.6); }
+.turn-dot.active { background: var(--accent-light); box-shadow: 0 0 10px var(--accent-light), 0 0 20px var(--accent-glow); }
+
+@media (max-width: 640px) {
+  .header { padding: 10px 12px; display: block; text-align: center; }
+  .header h1 { font-size: 15px; margin-bottom: 8px; }
+  .header-controls { justify-content: center; gap: 4px; }
+  .header-controls button { padding: 6px 10px; font-size: 12px; }
+  .main { padding: 16px 12px 20px 40px; overflow-y: scroll; -webkit-overflow-scrolling: touch; }
+  .narrative-text { font-size: 14px; line-height: 1.8; }
+  .options-bar { padding: 10px 6px 10px 40px; flex-direction: column; gap: 5px; max-height: 38vh; overflow-y: auto; }
+  .option-btn { flex: none; width: 100%; padding: 10px 12px; font-size: 12px; min-width: 0; line-height: 1.4; }
+  .save-dialog-content { min-width: 0; width: 92vw; margin: 0 8px; padding: 20px; }
+  .turn-timeline { width: 40px; }
+  .turn-dot { width: 12px; height: 12px; margin: 8px 0; }
+  body { overflow: hidden; display: flex; flex-direction: column; }
+}
 </style>
 </head>
 <body>
+<canvas id="particles"></canvas>
 
 <div class="header">
   <h1>提瓦特/银河 文字冒险</h1>
   <div class="header-controls">
-    <select id="world-select">
-      <option value="gi">原神 (GI)</option>
-      <option value="hsr">崩坏：星穹铁道 (HSR)</option>
-    </select>
-    <button id="btn-new" onclick="startGame()">新游戏</button>
+    <button id="btn-new" onclick="showNewGameDialog()">新游戏</button>
     <button id="btn-save" onclick="showSaveDialog()" disabled>保存</button>
     <button id="btn-load" onclick="showLoadDialog()">加载</button>
+    <button onclick="showSettings()" style="font-size:15px;padding:7px 9px;min-width:36px;text-align:center;">⚙</button>
   </div>
 </div>
 
 <div class="main" id="story-area">
   <div class="empty-state" id="empty-state">
-    <p>选择一个世界，开始你的冒险</p>
+    <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+    <p>选择世界，开始冒险</p>
   </div>
 </div>
 
+<div class="turn-timeline hidden" id="turn-timeline"></div>
 <div class="options-bar hidden" id="options-bar"></div>
+
+<div class="save-dialog hidden" id="newgame-dialog" onclick="if(event.target===this)hideNewGameDialog()">
+  <div class="save-dialog-content" style="min-width:320px;">
+    <h3 id="ng-title">选择世界</h3>
+    <div id="ng-world" style="display:flex;gap:10px;margin-bottom:12px;">
+      <button onclick="pickWorld('gi')" class="newgame-btn">原神 GI</button>
+      <button onclick="pickWorld('hsr')" class="newgame-btn">崩铁 HSR</button>
+    </div>
+    <div id="ng-location" class="hidden"></div>
+    <button onclick="hideNewGameDialog()" class="dialog-btn cancel" style="display:block;width:100%;text-align:center;margin-top:10px;">取消</button>
+  </div>
+</div>
 
 <div class="save-dialog hidden" id="save-dialog" onclick="if(event.target===this)hideSaveDialog()">
   <div class="save-dialog-content">
     <h3>保存进度</h3>
     <input type="text" id="save-name" placeholder="存档名称...">
-    <button onclick="doSave()">保存</button>
-    <button onclick="hideSaveDialog()">取消</button>
+    <button onclick="doSave()" class="dialog-btn">保存</button>
+    <button onclick="hideSaveDialog()" class="dialog-btn cancel">取消</button>
   </div>
 </div>
 
@@ -244,7 +474,19 @@ body::before {
   <div class="save-dialog-content" style="min-width:400px;">
     <h3>加载存档</h3>
     <div id="save-list"></div>
-    <button onclick="hideLoadDialog()" style="margin-top:12px;">取消</button>
+    <button onclick="hideLoadDialog()" class="dialog-btn cancel" style="margin-top:12px;">取消</button>
+  </div>
+</div>
+
+<div class="save-dialog hidden" id="settings-dialog" onclick="if(event.target===this)hideSettings()">
+  <div class="save-dialog-content" style="min-width:380px;">
+    <h3>设置 DeepSeek API Key</h3>
+    <p style="font-size:12px;color:#8b95a8;margin-bottom:14px;line-height:1.5;">去 <a href="https://platform.deepseek.com" target="_blank" style="color:#8b5cf6;">platform.deepseek.com</a> 注册获取，个人免费额度足够</p>
+    <input type="password" id="api-key-input" placeholder="sk-...">
+    <div style="display:flex;gap:8px;">
+      <button onclick="saveSettings()" class="dialog-btn">保存</button>
+      <button onclick="hideSettings()" class="dialog-btn cancel">取消</button>
+    </div>
   </div>
 </div>
 
@@ -253,17 +495,110 @@ var gameState = {
   world: null, character: null, saveName: null, turnCount: 0,
   isLoading: false, history: []
 };
+var userApiKey = localStorage.getItem('deepseek_api_key') || '';
+var pickedWorld = '';
+var pickedLocation = '';
+
+var LOCATIONS_DATA = {
+  gi: ['蒙德','璃月','稻妻','须弥','枫丹','纳塔','挪德卡莱'],
+  hsr: ['黑塔空间站','雅利洛-VI','仙舟罗浮','匹诺康尼','翁法罗斯','贝洛伯格','磐岩镇','奥赫玛']
+};
+
+(function initParticles() {
+  var c = document.getElementById('particles');
+  var ctx = c.getContext('2d');
+  var w, h;
+  var particles = [];
+  function resize() { w = c.width = window.innerWidth; h = c.height = window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+  var count = Math.min(120, Math.floor(window.innerWidth * window.innerHeight / 8000));
+  for (var i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * w, y: Math.random() * h,
+      r: Math.random() * 2 + 0.5,
+      vx: (Math.random() - 0.5) * 0.4,
+      vy: -(Math.random() * 0.5 + 0.15),
+      alpha: Math.random() * 0.6 + 0.15
+    });
+  }
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < -10) p.x = w + 10;
+      if (p.x > w + 10) p.x = -10;
+      if (p.y < -10) p.y = h + 10;
+      if (p.y > h + 10) p.y = -10;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(139,92,246,' + p.alpha + ')';
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+function showNewGameDialog() {
+  if (gameState.isLoading) return;
+  if (gameState.turnCount > 0 && !confirm('当前进度会丢失，确定开新游戏？')) return;
+  pickedWorld = ''; pickedLocation = '';
+  document.getElementById('ng-title').textContent = '选择世界';
+  document.getElementById('ng-world').classList.remove('hidden');
+  document.getElementById('ng-location').classList.add('hidden');
+  document.getElementById('newgame-dialog').classList.remove('hidden');
+}
+
+function hideNewGameDialog() {
+  document.getElementById('newgame-dialog').classList.add('hidden');
+}
+
+function pickWorld(w) {
+  pickedWorld = w;
+  var locs = LOCATIONS_DATA[w] || [];
+  var h = '<p style="color:var(--text-secondary);margin-bottom:10px;font-size:13px;">选择起始地点</p>';
+  h += '<button onclick="pickLocation(\'\')" class="ng-loc-btn">随机地点</button>';
+  for (var i = 0; i < locs.length; i++) {
+    h += '<button onclick="pickLocation(\'' + locs[i] + '\')" class="ng-loc-btn">' + locs[i] + '</button>';
+  }
+  document.getElementById('ng-title').textContent = w === 'gi' ? '原神 - 选地点' : '崩铁 - 选地点';
+  document.getElementById('ng-world').classList.add('hidden');
+  document.getElementById('ng-location').innerHTML = h;
+  document.getElementById('ng-location').classList.remove('hidden');
+}
+
+function pickLocation(loc) {
+  pickedLocation = loc;
+  hideNewGameDialog();
+  startGame();
+}
+
+function showSettings() { document.getElementById('settings-dialog').classList.remove('hidden'); document.getElementById('api-key-input').value = userApiKey; document.getElementById('api-key-input').focus(); }
+function hideSettings() { document.getElementById('settings-dialog').classList.add('hidden'); }
+function saveSettings() {
+  var key = document.getElementById('api-key-input').value.trim();
+  if (!key) { showToast('请输入 API Key'); return; }
+  userApiKey = key;
+  localStorage.setItem('deepseek_api_key', key);
+  hideSettings();
+  showToast('API Key 已保存');
+}
 
 function showToast(msg) {
   var t = document.createElement('div');
   t.className = 'toast'; t.textContent = msg;
   document.body.appendChild(t);
-  setTimeout(function(){ t.remove(); }, 2500);
+  setTimeout(function(){ t.remove(); }, 2800);
 }
 
 async function api(path, body) {
   var opts = { headers: { 'Content-Type': 'application/json' } };
-  if (body) { opts.method = 'POST'; opts.body = JSON.stringify(body); }
+  if (body) {
+    opts.method = 'POST';
+    if (userApiKey) { body.api_key = userApiKey; }
+    opts.body = JSON.stringify(body);
+  }
   var resp = await fetch(path, opts);
   if (!resp.ok) {
     var err = await resp.json().catch(function(){ return {}; });
@@ -272,36 +607,68 @@ async function api(path, body) {
   return resp.json();
 }
 
-function renderNarrative(text) {
+function typewriteText(element, text, speed, callback) {
+  var i = 0;
+  element.classList.add('typewriter-cursor');
+  function tick() {
+    if (i >= text.length) {
+      element.classList.remove('typewriter-cursor');
+      if (callback) callback();
+      return;
+    }
+    var chunk = text.substr(i, 3);
+    element.innerHTML += chunk.replace(/\n/g, '<br>');
+    i += 3;
+    setTimeout(tick, gameState.isTypewriterEnabled ? speed : 0);
+  }
+  tick();
+}
+
+function renderNarrative(text, instant) {
   var div = document.createElement('div');
   div.className = 'narrative-block';
+  div.id = 'turn-' + gameState.turnCount;
   var p = document.createElement('div');
   p.className = 'narrative-text';
-  var parts = text.split('\n\n').filter(function(s){ return s.trim(); });
-  p.innerHTML = parts.map(function(s){
-    return '<p style="margin-bottom:12px;">' + s.replace(/\n/g, '<br>') + '</p>';
+
+  var clean = text.replace(/^#{1,3}\s*/gm, '').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  var parts = clean.split('\n\n').filter(function(s){ return s.trim(); });
+  var html = parts.map(function(s){
+    return '<p>' + s.replace(/\n/g, '<br>') + '</p>';
   }).join('');
+
   div.appendChild(p);
+
+  if (instant) {
+    p.innerHTML = html;
+  } else {
+    gameState.isTypewriterEnabled = true;
+    typewriteText(p, clean, 15, function(){
+      gameState.isTypewriterEnabled = false;
+    });
+  }
   return div;
 }
 
 function renderOptions(options) {
   var bar = document.getElementById('options-bar');
   bar.innerHTML = '';
+  updateTimeline();
   if (gameState.isLoading) {
-    bar.innerHTML = '<span style="color:var(--text-secondary)"><span class="loading-spinner"></span> AI 正在书写故事...</span>';
+    bar.innerHTML = '<div class="loading-indicator"><div class="loading-dot-wave"><span></span><span></span><span></span></div> AI 正在书写故事...</div>';
     bar.classList.remove('hidden');
     return;
   }
   if (!options || options.length === 0) {
-    bar.innerHTML = '<span style="color:#f87171">错误：未收到选项</span>';
+    bar.innerHTML = '<span style="color:#f87171;font-size:13px;">错误：未收到选项</span>';
     bar.classList.remove('hidden');
     return;
   }
   options.forEach(function(opt, i) {
     var btn = document.createElement('button');
     btn.className = 'option-btn';
-    btn.innerHTML = '<span class="num">' + (i+1) + '.</span>' + opt.replace(/^\d+[.、]?\s*/, '');
+    if (opt.indexOf('【结局】') === 0) btn.className += ' ending-btn';
+    btn.innerHTML = '<span class="num">' + (i+1) + '.</span>' + opt.replace(/^\d+[.、]?\s*/, '').replace('【结局】', '');
     btn.onclick = function(){ sendAction(opt); };
     bar.appendChild(btn);
   });
@@ -310,23 +677,28 @@ function renderOptions(options) {
 
 async function startGame() {
   if (gameState.isLoading) return;
+  if (gameState.turnCount > 0 && !confirm('当前进度会丢失，确定开新游戏？')) return;
   gameState.isLoading = true;
+  gameState.world = null;
+  gameState.character = null;
+  gameState.turnCount = 0;
+  gameState.history = [];
+  gameState.storyState = '';
   document.getElementById('btn-new').disabled = true;
   document.getElementById('btn-save').disabled = true;
-  var world = document.getElementById('world-select').value;
+  var world = pickedWorld;
+  var location = pickedLocation;
   var character = world === 'gi' ? '旅行者' : '开拓者';
-  var storyArea = document.getElementById('story-area');
-  var empty = document.getElementById('empty-state');
-  storyArea.innerHTML = '';
-  storyArea.appendChild(empty);
-  renderOptions([]);
-
   try {
-    var data = await api('/api/adventure/start', { world: world, character: character });
+    var empty = document.getElementById('empty-state');
+    var storyArea = document.getElementById('story-area');
+    renderOptions([]);
+    var data = await api('/api/adventure/start', { world: world, character: character, location: location });
     gameState.world = world;
     gameState.character = character;
     gameState.turnCount = 1;
     gameState.history = [];
+    gameState.storyState = data.story_state || '';
     empty.classList.add('hidden');
     storyArea.innerHTML = '';
     storyArea.appendChild(renderNarrative(data.narrative));
@@ -349,20 +721,57 @@ async function sendAction(choice) {
   renderOptions([]);
 
   try {
-    var data = await api('/api/adventure/action', { choice: choice, state: gameState.storyState || '' });
+    var data;
+    var isEndingChoice = choice.indexOf('【结局】') === 0;
+    if (userApiKey && !isEndingChoice) {
+      var ctx = await api('/api/adventure/context', { choice: choice, state: gameState.storyState || '', api_key: userApiKey });
+      data = await directDeepSeek(ctx.messages, userApiKey);
+      if (!data.options || data.options.length < 2) {
+        var optRes = await api('/api/adventure/options', { narrative: data.narrative, world: gameState.world, story_state: data.story_state || '', last_choice: choice });
+        if (optRes.options && optRes.options.length >= 2) data.options = optRes.options;
+      }
+    } else {
+      data = await api('/api/adventure/action', { choice: choice, state: gameState.storyState || '' });
+    }
     var storyArea = document.getElementById('story-area');
+    gameState.turnCount++;
     storyArea.appendChild(renderNarrative(data.narrative));
     storyArea.scrollTop = storyArea.scrollHeight;
-    gameState.turnCount++;
     gameState.isLoading = false;
+    gameState.storyState = data.story_state || '';
     gameState.history.push({ narrative: data.narrative, options: data.options });
-    renderOptions(data.options);
+
+    if (data.is_ending) {
+      renderEndingScreen(data.narrative);
+    } else {
+      renderOptions(data.options);
+    }
     document.getElementById('btn-save').disabled = false;
   } catch (e) {
     gameState.isLoading = false;
-    showToast('请求失败: ' + e.message);
-    renderOptions(['1. 重试', '2. 回到开头', '3. 观察四周', '4. 呼喊求助']);
+    if (e.message === 'free_turns_exhausted') {
+      showToast('免费额度已用完！点击齿轮输入自己的 Key 即可继续');
+      renderOptions(['1. 输入自己的 Key 继续冒险', '2. 保存进度', '3. 查看回顾', '4. 开始新游戏']);
+    } else {
+      showToast('请求失败: ' + e.message);
+      renderOptions(['1. 重试', '2. 保存进度', '3. 观察四周', '4. 呼喊求助']);
+    }
   }
+}
+
+async function directDeepSeek(messages, key) {
+  var resp = await fetch('https://api.deepseek.com/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'deepseek-v4-flash', temperature: 0.3, max_tokens: 1600, frequency_penalty: 0.3,
+      messages: messages, stream: false
+    })
+  });
+  if (!resp.ok) throw new Error('DeepSeek: ' + resp.status);
+  var js = await resp.json();
+  var raw = js.choices[0].message.content;
+  return parseDisplay(raw);
 }
 
 function showSaveDialog() {
@@ -371,10 +780,7 @@ function showSaveDialog() {
   document.getElementById('save-name').focus();
   document.getElementById('save-name').select();
 }
-
-function hideSaveDialog() {
-  document.getElementById('save-dialog').classList.add('hidden');
-}
+function hideSaveDialog() { document.getElementById('save-dialog').classList.add('hidden'); }
 
 function doSave() {
   var name = document.getElementById('save-name').value.trim();
@@ -384,12 +790,12 @@ function doSave() {
     world: gameState.world,
     character: gameState.character,
     turnCount: gameState.turnCount,
+    storyState: gameState.storyState,
     history: gameState.history,
     savedAt: new Date().toISOString(),
   };
   localStorage.setItem('adv_' + name, JSON.stringify(saveData));
   gameState.saveName = name;
-  updateSaveSelect();
   showToast('已保存到浏览器');
 }
 
@@ -424,10 +830,7 @@ function showLoadDialog() {
       '</span></div>';
   }).join('');
 }
-
-function hideLoadDialog() {
-  document.getElementById('load-dialog').classList.add('hidden');
-}
+function hideLoadDialog() { document.getElementById('load-dialog').classList.add('hidden'); }
 
 async function loadGame(name) {
   hideLoadDialog();
@@ -438,9 +841,10 @@ async function loadGame(name) {
     gameState.world = saveData.world;
     gameState.character = saveData.character;
     gameState.saveName = name;
+    pickedWorld = saveData.world;
     gameState.turnCount = saveData.turnCount;
+    gameState.storyState = saveData.storyState || '';
     gameState.history = saveData.history.slice();
-    document.getElementById('world-select').value = saveData.world;
     document.getElementById('btn-save').disabled = false;
 
     var restoreHistory = saveData.history.map(function(t) {
@@ -453,7 +857,7 @@ async function loadGame(name) {
     storyArea.innerHTML = '';
 
     for (var i = 0; i < gameState.history.length; i++) {
-      storyArea.appendChild(renderNarrative(gameState.history[i].narrative));
+      storyArea.appendChild(renderNarrative(gameState.history[i].narrative, true));
     }
     storyArea.scrollTop = storyArea.scrollHeight;
 
@@ -474,7 +878,100 @@ function deleteSave(name) {
   showLoadDialog();
 }
 
-function updateSaveSelect() {}
+function renderEndingScreen(narrative) {
+  var bar = document.getElementById('options-bar');
+  var storyArea = document.getElementById('story-area');
+  storyArea.appendChild(renderNarrative(narrative, true));
+  storyArea.scrollTop = storyArea.scrollHeight;
+  bar.innerHTML = '<div class="ending-screen">' +
+    '<h2>冒险落幕</h2>' +
+    '<button class="restart-btn" onclick="showNewGameDialog()">开启新的冒险</button>' +
+    '</div>';
+  bar.classList.remove('hidden');
+}
+
+function parseDisplay(text) {
+  var choiceIdx = text.indexOf('【你的选择】');
+  if (choiceIdx < 0) choiceIdx = text.indexOf('【你的選擇】');
+  var narrative = choiceIdx >= 0 ? text.substring(0, choiceIdx).trim() : text.trim();
+  var options = [];
+  var storyState = '';
+  if (choiceIdx >= 0) {
+    var rest = text.substring(choiceIdx + 6);
+    var stateIdx = rest.indexOf('【故事状态】');
+    var optText = stateIdx >= 0 ? rest.substring(0, stateIdx) : rest;
+    if (stateIdx >= 0) storyState = rest.substring(stateIdx + 6).trim();
+    var lines = optText.trim().split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var m = lines[i].trim().match(/^(\d+)[.、)]?\s*(.*)/);
+      if (m) options.push(m[0].trim());
+    }
+  }
+  if (options.length === 0 && choiceIdx < 0) {
+    var lines = text.split('\n');
+    var found = [];
+    for (var i = lines.length - 1; i >= Math.max(0, lines.length - 15); i--) {
+      var m = lines[i].trim().match(/^(\d+)[.、)]?\s*(.*)/);
+      if (m) found.unshift(m[0].trim());
+    }
+    if (found.length >= 2) {
+      options = found.slice(0, 4);
+      var lastOptIdx = text.lastIndexOf(found[found.length - 1]);
+      if (lastOptIdx >= 0) {
+        narrative = text.substring(0, text.lastIndexOf(found[0])).trim();
+      }
+    }
+  }
+  if (options.length === 0) options = ['1. 继续前进', '2. 观察四周', '3. 大声呼喊', '4. 等待时机'];
+  return { narrative: narrative, options: options, story_state: storyState };
+}
+
+function updateTimeline() {
+  var tl = document.getElementById('turn-timeline');
+  if (gameState.turnCount === 0) { tl.classList.add('hidden'); tl.innerHTML = ''; return; }
+  var total = gameState.turnCount;
+  var start = Math.max(1, total - 3);
+  var end = Math.min(start + 6, total);
+  start = Math.max(1, end - 6);
+  var center = total;
+  var html = '';
+  for (var i = start; i <= end; i++) {
+    var dist = Math.abs(i - center);
+    var opacity = Math.max(0.2, 1 - dist * 0.25);
+    var size = 12 - dist * 2;
+    var cls = i === center ? ' active' : '';
+    html += '<div class="turn-dot' + cls + '" style="opacity:' + opacity + ';width:' + size + 'px;height:' + size + 'px;" title="第' + i + '轮" onclick="jumpToTurn(' + i + ')"></div>';
+  }
+  tl.innerHTML = html;
+  tl.classList.remove('hidden');
+}
+
+function jumpToTurn(n) {
+  var el = document.getElementById('turn-' + n);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+(function autoRestore() {
+  var saves = [];
+  for (var i = 0; i < localStorage.length; i++) {
+    var key = localStorage.key(i);
+    if (key && key.indexOf('adv_') === 0) {
+      try {
+        var d = JSON.parse(localStorage.getItem(key));
+        saves.push({ name: key.slice(4), savedAt: d.savedAt || '', turnCount: d.turnCount || 0, world: d.world });
+      } catch(e) {}
+    }
+  }
+  if (saves.length === 0) return;
+  saves.sort(function(a,b){ return b.savedAt.localeCompare(a.savedAt); });
+  var recent = saves[0];
+  setTimeout(function() {
+    if (confirm('检测到上次存档「' + recent.name + '」（' + recent.turnCount + '轮），恢复吗？')) {
+      loadGame(recent.name);
+    }
+  }, 500);
+})();
 </script>
 </body>
 </html>

@@ -8,7 +8,10 @@ data/
 data.zip
 retrieval/data/
 
-# Saves (personal)
+# IP quota (persistent, not for git)
+ip_quota.json
+
+# Saves (personal game saves)
 saves/
 
 # Python
@@ -19,3 +22,14 @@ __pycache__/
 *.log
 tunnel_output.txt
 tunnel_url.txt
+
+# IDE / tools
+.superpowers/
+.vscode/
+.idea/
+
+# Test / temp files
+test_*.py
+test_*.sh
+restart_test.sh
+worker/
