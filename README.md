@@ -1,75 +1,39 @@
 # 米哈游文字冒险
 
-基于 DeepSeek AI 的互动文字冒险游戏，支持原神和崩坏：星穹铁道世界。
+基于 DeepSeek AI 的互动文字冒险引擎，让你在 Genshin Impact 和 Honkai Star Rail 的世界里自由探索。
 
-## 特性
+## 设计思路
 
-- **双 AI 架构**：叙事 AI + 选项 AI 独立调用，选项质量高且永远不会缺失
-- **智能结局**：AI 判断剧情终点，触发终章叙事
-- **RAG 世界观**：基于游戏数据的角色/地点/阵营信息检索
-- **打字机效果**：叙事逐字显现，沉浸感强
-- **免费游玩**：每 IP 40 轮免费额度，也可用自己的 DeepSeek API Key
-- **本地存档**：浏览器 localStorage 保存/加载进度
-- **支持世界**：原神（GI）、崩坏：星穹铁道（HSR）
+### 核心问题
 
-## 快速开始
+传统文字冒险游戏的选项往往空洞重复——"继续前进""观察四周""转身离开"——玩家不是在冒险，而是在点按钮。
 
-### 依赖
-- Python 3.6+
-- aiohttp, httpx
+### 解决方案：双 AI 架构
 
-```bash
-pip install aiohttp httpx
-```
+将"叙事"和"选项设计"拆给两个独立的 AI：
 
-### 配置
+- **叙事 AI**：专注于沉浸式故事写作，只产出场景描写和人物对话
+- **选项 AI**：基于当前叙事内容，设计 4 个具体、有悬念、推动剧情的行动选项
 
-创建 `adventure_config.json`：
+两个 AI 各司其职，选项不再是泛泛的补丁，而是真正衔接上下文、让玩家纠结的抉择。
 
-```json
-{
-  "deepseek": {
-    "api_key": "sk-your-key-here",
-    "model": "deepseek-v4-flash",
-    "temperature": 0.3,
-    "max_tokens": 1600
-  },
-  "admin_key": "your-admin-password"
-}
-```
+### 智能结局
 
-或设置环境变量 `DEEPSEEK_API_KEY` 和 `ADMIN_KEY`。
+传统 AI 冒险没有终点——故事永远在"继续"。叙事 AI 达到剧情自然高潮后输出 `【冒险结束】` 标记，触发独立的终章叙事，给冒险一个收束。
 
-### 运行
+### 世界观检索（RAG）
 
-```bash
-python3 adventure_server.py
-# 访问 http://localhost:8888
-```
+角色/地点/阵营数据通过 FTS5 全文索引，当玩家提到特定角色时自动注入人设信息，让 AI 说话不"出戏"。
 
-### 数据准备
+### 免费 + 自由
 
-需要 `world_info.json`（角色/地点/阵营数据）和 `character_personas.json`（角色人设）。运行：
+默认使用服务器 API Key，每 IP 40 轮免费额度。有自己 Key 的玩家可以切到直连模式，不受限制。
 
-```bash
-python3 build_characters.py   # 从 data/ 生成 world_info.json
-python3 build_personas.py     # 生成 character_personas.json
-```
+## 技术栈
 
-### 管理页面
+纯 Python 后端（aiohttp）+ 零依赖 HTML/CSS/JS 前端。无框架，无构建步骤，一个文件即可运行。
 
-访问 `/arc-5813f?key=<admin_key>` 查看访客配额。
-
-## 文件结构
-
-```
-adventure_server.py      # 主服务端（aiohttp）
-adventure_index.html     # 前端单页（零依赖）
-build_characters.py      # 构建角色数据
-build_personas.py        # 构建人设数据
-world_info.json          # 角色/地点/阵营索引
-character_personas.json  # 角色人设摘要
-```
+故事状态通过 AI 输出的 `【故事状态】` 标记在每轮之间传递，上下文通过滑动窗口 + LLM 摘要压缩，避免 token 爆炸。
 
 ## License
 
