@@ -33,4 +33,7 @@ docs/superpowers/
 test_*.py
 test_*.sh
 restart_test.sh
+cf_*.sh
+check_*.sh
+xhs_draft.md
 worker/

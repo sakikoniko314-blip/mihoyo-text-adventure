@@ -201,6 +201,21 @@ body::after {
 }
 .option-btn.ending-btn .num { color: var(--gold); }
 
+.end-now-btn {
+  padding: 8px 18px; font-size: 12px;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 20px; color: #665;
+  cursor: pointer; font-family: inherit;
+  transition: all 0.3s;
+  align-self: flex-end; margin-left: auto;
+}
+.end-now-btn:hover {
+  border-color: rgba(239,68,68,0.3);
+  color: #d99;
+  background: rgba(239,68,68,0.04);
+}
+
 .ending-screen {
   text-align: center; padding: 40px 20px;
   animation: fadeUpIn 0.8s ease-out;
@@ -421,7 +436,9 @@ body::after {
   .option-btn { flex: none; width: 100%; padding: 10px 12px; font-size: 12px; min-width: 0; line-height: 1.4; }
   .save-dialog-content { min-width: 0; width: 92vw; margin: 0 8px; padding: 20px; }
   .turn-timeline { width: 40px; }
-  .turn-dot { width: 12px; height: 12px; margin: 8px 0; }
+  .turn-dot { width: 16px; height: 16px; margin: 10px 0; min-width: 16px; min-height: 16px; }
+  .turn-timeline { width: 44px; }
+  .turn-dot:active { transform: scale(2); background: var(--accent-light); }
   body { overflow: hidden; display: flex; flex-direction: column; }
 }
 </style>
@@ -672,7 +689,60 @@ function renderOptions(options) {
     btn.onclick = function(){ sendAction(opt); };
     bar.appendChild(btn);
   });
+  var endBtn = document.createElement('button');
+  endBtn.className = 'end-now-btn';
+  endBtn.textContent = '结束冒险';
+  endBtn.onclick = function(){ if(confirm('确定结束当前冒险？')) sendAction('【结局】'); };
+  bar.appendChild(endBtn);
   bar.classList.remove('hidden');
+}
+
+async function asyncStreamFetch(path, body) {
+  var resp = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) {
+    var err = await resp.json().catch(function(){ return {}; });
+    throw new Error(err.error || 'HTTP ' + resp.status);
+  }
+  var reader = resp.body.getReader();
+  var decoder = new TextDecoder();
+  var fullNarrative = '';
+  var result = null;
+
+  var storyArea = document.getElementById('story-area');
+  var block = document.createElement('div');
+  block.className = 'narrative-block';
+  block.id = 'turn-' + (gameState.turnCount + 1);
+  var p = document.createElement('div');
+  p.className = 'narrative-text';
+  block.appendChild(p);
+  storyArea.appendChild(block);
+
+  while (true) {
+    var read = await reader.read();
+    if (read.done) break;
+    var text = decoder.decode(read.value, {stream: true});
+    var lines = text.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (!line.startsWith('data: ')) continue;
+      try {
+        var data = JSON.parse(line.slice(6));
+        if (data.c) {
+          fullNarrative += data.c;
+          p.textContent += data.c;
+          storyArea.scrollTop = storyArea.scrollHeight;
+        }
+        if (data.done) {
+          result = data;
+        }
+      } catch(e) {}
+    }
+  }
+  return { narrative: fullNarrative, options: result.options, story_state: result.story_state, is_ending: result.is_ending };
 }
 
 async function startGame() {
@@ -693,15 +763,29 @@ async function startGame() {
     var empty = document.getElementById('empty-state');
     var storyArea = document.getElementById('story-area');
     renderOptions([]);
-    var data = await api('/api/adventure/start', { world: world, character: character, location: location });
+    empty.classList.add('hidden');
+    if (userApiKey) { storyArea.innerHTML = ''; }
+
+    var startBody = { world: world, character: character, location: location };
+    if (userApiKey) { startBody.api_key = userApiKey; }
+    if (!userApiKey) { startBody.stream = true; }
+
+    var data;
+    if (!userApiKey) {
+      data = await asyncStreamFetch('/api/adventure/start', startBody);
+    } else {
+      data = await api('/api/adventure/start', startBody);
+    }
+
     gameState.world = world;
+    setWorldTheme(world);
     gameState.character = character;
     gameState.turnCount = 1;
     gameState.history = [];
     gameState.storyState = data.story_state || '';
-    empty.classList.add('hidden');
-    storyArea.innerHTML = '';
-    storyArea.appendChild(renderNarrative(data.narrative));
+    if (userApiKey) {
+      storyArea.appendChild(renderNarrative(data.narrative));
+    }
     storyArea.scrollTop = storyArea.scrollHeight;
     gameState.isLoading = false;
     gameState.history.push({ narrative: data.narrative, options: data.options });
@@ -725,18 +809,23 @@ async function sendAction(choice) {
     var isEndingChoice = choice.indexOf('【结局】') === 0;
     if (userApiKey && !isEndingChoice) {
       var ctx = await api('/api/adventure/context', { choice: choice, state: gameState.storyState || '', api_key: userApiKey });
-      data = await directDeepSeek(ctx.messages, userApiKey);
-      if (!data.options || data.options.length < 2) {
-        var optRes = await api('/api/adventure/options', { narrative: data.narrative, world: gameState.world, story_state: data.story_state || '', last_choice: choice });
-        if (optRes.options && optRes.options.length >= 2) data.options = optRes.options;
-      }
+      data = await asyncStreamFetch('/api/adventure/stream-narrative', { messages: ctx.messages, api_key: userApiKey });
     } else {
-      data = await api('/api/adventure/action', { choice: choice, state: gameState.storyState || '' });
+      var actionBody = { choice: choice, state: gameState.storyState || '' };
+      if (userApiKey) actionBody.api_key = userApiKey;
+      if (!userApiKey && !isEndingChoice) actionBody.stream = true;
+      if (!userApiKey && !isEndingChoice) {
+        data = await asyncStreamFetch('/api/adventure/action', actionBody);
+      } else {
+        data = await api('/api/adventure/action', actionBody);
+      }
     }
     var storyArea = document.getElementById('story-area');
     gameState.turnCount++;
-    storyArea.appendChild(renderNarrative(data.narrative));
-    storyArea.scrollTop = storyArea.scrollHeight;
+    if (isEndingChoice) {
+      storyArea.appendChild(renderNarrative(data.narrative));
+      storyArea.scrollTop = storyArea.scrollHeight;
+    }
     gameState.isLoading = false;
     gameState.storyState = data.story_state || '';
     gameState.history.push({ narrative: data.narrative, options: data.options });
@@ -839,6 +928,7 @@ async function loadGame(name) {
     if (!raw) { showToast('存档不存在'); return; }
     var saveData = JSON.parse(raw);
     gameState.world = saveData.world;
+    setWorldTheme(saveData.world);
     gameState.character = saveData.character;
     gameState.saveName = name;
     pickedWorld = saveData.world;

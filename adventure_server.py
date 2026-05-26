@@ -44,10 +44,11 @@ LOCATIONS = {"gi": [], "hsr": []}
 FACTIONS = {"gi": [], "hsr": []}
 PERSONAS = {"gi": {}, "hsr": {}}
 
-current_game = None
+games = {}
 ADMIN_KEY = os.environ.get("ADMIN_KEY", "change-me")
 IP_QUOTA = {}
 IP_QUOTA_FILE = Path(__file__).parent / "ip_quota.json"
+STATS = {"games_started": 0, "turns_played": 0, "last_active": {}}
 
 
 def load_ip_quota():
@@ -180,22 +181,20 @@ class GameState:
         self.history.append({"role": role, "content": content})
 
 
-def save_game(name):
+def save_game(name, game):
     SAVES_DIR.mkdir(parents=True, exist_ok=True)
     safe = "".join(c for c in name if c.isalnum() or c in "_- ")
     filepath = SAVES_DIR / f"{safe}.json"
-    filepath.write_text(json.dumps(current_game.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+    filepath.write_text(json.dumps(game.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def load_game(name):
-    global current_game
     safe = "".join(c for c in name if c.isalnum() or c in "_- ")
     filepath = SAVES_DIR / f"{safe}.json"
     if not filepath.exists():
         return None
     data = json.loads(filepath.read_text(encoding="utf-8"))
-    current_game = GameState.from_dict(data)
-    return current_game
+    return GameState.from_dict(data)
 
 
 def list_saves():
@@ -230,6 +229,81 @@ async def call_deepseek(messages, api_key=None):
         return resp.json()["choices"][0]["message"]["content"].strip()
 
 
+async def call_deepseek_stream(messages, api_key=None):
+    import httpx
+    key = api_key or DEEPSEEK_CONFIG["api_key"]
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        async with client.stream(
+            "POST", f"{DEEPSEEK_CONFIG['base_url']}/chat/completions",
+            json={"model": DEEPSEEK_CONFIG["model"], "messages": messages,
+                  "temperature": DEEPSEEK_CONFIG["temperature"], "max_tokens": DEEPSEEK_CONFIG["max_tokens"],
+                  "stream": True, "frequency_penalty": 0.3},
+            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        ) as resp:
+            resp.raise_for_status()
+            async for line in resp.aiter_lines():
+                if line.startswith("data: "):
+                    data = line[6:]
+                    if data == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data)
+                        delta = chunk["choices"][0].get("delta", {})
+                        content = delta.get("content", "")
+                        if content:
+                            yield content
+                    except Exception:
+                        pass
+
+
+async def streaming_handler(narrative_gen, request, game, world, character_for_start, user_key):
+    ws = web.StreamResponse()
+    ws.headers["Content-Type"] = "text/event-stream"
+    ws.headers["Cache-Control"] = "no-cache"
+    ws.headers["X-Accel-Buffering"] = "no"
+    await ws.prepare(request)
+
+    full_narrative = ""
+    pending = ""
+    stopped = False
+    try:
+        async for chunk in narrative_gen:
+            full_narrative += chunk
+            if stopped:
+                continue
+            pending += chunk
+            state_pos = pending.rfind("【故事状态】")
+            if state_pos < 0:
+                state_pos = pending.rfind("【冒险结束】")
+            if state_pos >= 0:
+                safe = pending[:state_pos]
+                if safe:
+                    await ws.write(f"data: {json.dumps({'c': safe})}\n\n".encode())
+                stopped = True
+            elif len(pending) > 12:
+                flush_len = len(pending) - 8
+                await ws.write(f"data: {json.dumps({'c': pending[:flush_len]})}\n\n".encode())
+                pending = pending[flush_len:]
+    except Exception as e:
+        await ws.write(f"data: {json.dumps({'error': str(e)})}\n\n".encode())
+        return ws
+
+    narrative, _, story_state, is_ending = parse_narrative(full_narrative)
+
+    gen_opts = await generate_options(narrative, world, story_state, api_key=user_key or None)
+    if not gen_opts:
+        gen_opts = ["1. 继续前进", "2. 仔细观察周围", "3. 转身离开", "4. 试着呼喊"]
+    if is_ending:
+        gen_opts = ["【结局】迎接冒险的终章"] + gen_opts[:3]
+
+    game.add_turn("system", narrative)
+    if character_for_start:
+        game.add_turn("user", character_for_start)
+
+    await ws.write(f"data: {json.dumps({'done': True, 'options': gen_opts, 'story_state': story_state, 'is_ending': is_ending})}\n\n".encode())
+    return ws
+
+
 PROMPT_NARRATIVE = """你是《{game_name}》世界的AI叙事者（DM）。你为玩家创作互动文字冒险故事。
 
 ## 红线
@@ -247,7 +321,11 @@ PROMPT_NARRATIVE = """你是《{game_name}》世界的AI叙事者（DM）。你�
 
 ## 叙事原则
 - 写确定存在的东西，不确定就写场景氛围和角色互动
-- 用小说式描写：场景细节、角色神态、氛围、对话
+- 用小说式描写：感官优先（听觉嗅觉→触觉→视觉），场景细节、角色神态、对话
+- 每段聚焦一个元素写透，不要走马灯式列举
+- 原神世界必须有派蒙在场，带至少一句对话（她被吓到、吐槽、眼馋食物等）
+- 崩铁世界无需固定同伴，可用环境独白或偶遇角色替代
+- 结尾埋一个小悬念或不寻常的细节，让玩家好奇
 - 2-4个段落，每段之间空行
 
 ## 输出格式
@@ -284,7 +362,8 @@ PROMPT_OPTIONS = """你是原神/崩铁文字冒险的游戏设计师。根据�
 ## 选项设计原则
 - 每个选项控制在15字以内，简洁有力
 - 禁止"观察""继续""呼喊""离开"等空洞动词
-- 4个选项必须覆盖：推进剧情 | 探索发现 | 人物互动 | 隐藏动作
+- 4个选项必须包含至少2种不同的行动类型（推进/探索/对话/隐藏/对峙/逃避等），不要求每轮都覆盖所有类型
+- 至少1个选项要有意外性——玩家没想到但合理的选择
 - 每个选项要衔接上文，有悬念感
 
 ## 输出格式
@@ -404,37 +483,52 @@ async def generate_options(narrative, world, story_state="", last_choice="", api
         game_name=game_name, location=location, present=present,
         goal=goal, narrative=narrative, last_choice=last_choice or "（新游戏）",
     )
-    try:
-        raw = await call_deepseek([{"role": "system", "content": prompt}], api_key=api_key)
-        options = []
-        for line in raw.strip().split("\n"):
-            m = re.match(r"^(\d+)[.、)]?\s*(.*)", line.strip())
-            if m:
-                options.append(m.group(0).strip())
-        if len(options) >= 2:
-            return options
-    except Exception as e:
-        logger.warning("Options generation failed: %s", e)
+    for attempt in range(2):
+        try:
+            raw = await call_deepseek([{"role": "system", "content": prompt}], api_key=api_key)
+            options = []
+            for line in raw.strip().split("\n"):
+                m = re.match(r"^(\d+)[.、)]?\s*(.*)", line.strip())
+                if m:
+                    options.append(m.group(0).strip())
+            if len(options) >= 2:
+                return options
+        except Exception as e:
+            logger.warning("Options generation attempt %d failed: %s", attempt + 1, e)
     return None
 
 
+def dedup_narrative(text):
+    paragraphs = text.split("\n\n")
+    seen = set()
+    deduped = []
+    for p in paragraphs:
+        key = p.strip()[:80]
+        if key and key not in seen:
+            seen.add(key)
+            deduped.append(p)
+        elif not key:
+            deduped.append(p)
+    return "\n\n".join(deduped)
+
+
 def parse_narrative(text):
+    text = dedup_narrative(text)
     narrative = text.strip()
     options = []
     story_state = ""
     is_ending = False
 
-    ending_idx = text.find("【冒险结束】")
+    ending_idx = text.rfind("【冒险结束】")
     if ending_idx >= 0:
         is_ending = True
         narrative = text[:ending_idx].strip()
         story_state = "冒险结束"
         return narrative, options, story_state, is_ending
 
-    state_idx = text.find("【故事状态】")
+    state_idx = text.rfind("【故事状态】")
     if state_idx >= 0:
-        if narrative.endswith(text[state_idx:]):
-            narrative = text[:state_idx].strip()
+        narrative = text[:state_idx].strip()
         story_state = text[state_idx + 6:].strip()
 
     choice_idx = text.find("【你的选择】")
@@ -487,21 +581,55 @@ async def handle_admin(request):
 <button style="background:#2a2a4a;color:#c0c0ff;border:1px solid #4040a0;padding:8px 16px;border-radius:6px;cursor:pointer">进入</button>
 </form></body></html>"""
         )
-    html = "<h2>Visitors</h2><table border=1 cellpadding=5 style='font-family:monospace'>"
+
+    reset = request.query.get("reset")
+    if reset and reset in IP_QUOTA:
+        IP_QUOTA[reset] = FREE_TURNS
+        save_ip_quota()
+
+    cutoff = datetime.now().timestamp() - 3600
+    active = sum(1 for vid, t in STATS["last_active"].items() if t.timestamp() > cutoff)
+
+    html = """<style>
+    body{background:#0a0d18;color:#e8ecf4;font-family:sans-serif;padding:24px;line-height:1.6}
+    h2{color:#c4b5fd;margin:16px 0 8px}
+    .stat{display:inline-block;background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:8px;padding:10px 16px;margin:4px}
+    .stat .num{font-size:22px;font-weight:700;color:#c4b5fd}
+    .stat .label{font-size:11px;color:#8890a4}
+    table{border-collapse:collapse;width:100%;max-width:600px}
+    th,td{padding:6px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.06)}
+    th{color:#8890a4;font-size:11px;font-weight:500}
+    .own{color:#22c55e}.zero{color:#ef4444}.ok{color:#f59e0b}
+    button{background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:4px;cursor:pointer;font-size:11px}
+    button:hover{background:rgba(239,68,68,0.25)}
+    a{color:#8890a4}
+    </style>"""
+
+    html += f"""<h2>Arc Admin</h2>
+    <div>
+    <div class="stat"><div class="num">{STATS["games_started"]}</div><div class="label">Games Started</div></div>
+    <div class="stat"><div class="num">{STATS["turns_played"]}</div><div class="label">Turns Played</div></div>
+    <div class="stat"><div class="num">{len(games)}</div><div class="label">Active Sessions</div></div>
+    <div class="stat"><div class="num">{active}</div><div class="label">Active (1h)</div></div>
+    </div>
+    <h2>Visitors</h2>
+    <table>"""
     for vid, remaining in sorted(IP_QUOTA.items(), key=lambda x: -x[1]):
         if remaining < 0:
-            tag = "<span style='color:#22c55e'>own key</span>"
+            tag = "<span class='own'>own key</span>"
         elif remaining == 0:
-            tag = "<span style='color:#ef4444'>out of free turns</span>"
+            tag = f"<span class='zero'>0 turns</span> <a href='?key={ADMIN_KEY}&reset={vid}'>reset</a>"
         else:
-            tag = f"<span style='color:#f59e0b'>{remaining} turns left</span>"
+            tag = f"<span class='ok'>{remaining} turns</span> <button onclick=\"if(confirm('Reset {vid}?'))location='?key={ADMIN_KEY}&reset={vid}'\">reset</button>"
+        last = ""
+        if vid in STATS["last_active"]:
+            last = f"<td>{STATS['last_active'][vid].strftime('%H:%M')}</td>"
         html += f"<tr><td>{vid}</td><td>{tag}</td></tr>"
     html += "</table><br><a href='/arc-5813f'>登出</a>"
     return web.Response(text=html, content_type="text/html")
 
 
 async def handle_start(request):
-    global current_game
     try:
         body = await request.json()
     except Exception:
@@ -513,10 +641,14 @@ async def handle_start(request):
     if world not in ("gi", "hsr"):
         return web.json_response({"error": "world must be gi or hsr"}, status=400)
 
-    current_game = GameState(world, character)
+    visitor_id = get_visitor_id(request)
+    game = GameState(world, character)
     if user_key:
-        current_game.has_own_key = True
-    logger.info("START: world=%s character=%s location=%s", world, character, user_chosen_loc or "random")
+        game.has_own_key = True
+    games[visitor_id] = game
+    STATS["games_started"] += 1
+    STATS["last_active"][visitor_id] = datetime.now()
+    logger.info("START: world=%s character=%s location=%s visitor=%s", world, character, user_chosen_loc or "random", visitor_id)
 
     locs = LOCATIONS.get(world, [])
     if user_chosen_loc and user_chosen_loc in locs:
@@ -530,7 +662,11 @@ async def handle_start(request):
         loc_rag = build_rag_context(start_loc, world)
         if loc_rag:
             rag = rag + "\n\n" + loc_rag if rag else loc_rag
-    messages = build_messages(current_game, rag, start_hint)
+    messages = build_messages(game, rag, start_hint)
+    if body.get("stream"):
+        narrative_gen = call_deepseek_stream(messages, api_key=user_key or None)
+        return await streaming_handler(narrative_gen, request, game, world, character, user_key)
+
     try:
         raw = await call_deepseek(messages, api_key=user_key or None)
     except Exception as e:
@@ -544,14 +680,15 @@ async def handle_start(request):
             options = ["1. 继续前进", "2. 仔细观察周围", "3. 转身离开", "4. 试着呼喊"]
     if is_ending:
         options = ["【结局】迎接冒险的终章"] + options[:3]
-    current_game.add_turn("system", narrative)
-    current_game.add_turn("user", character)
+    game.add_turn("system", narrative)
+    game.add_turn("user", character)
     return web.json_response({"narrative": narrative, "options": options, "story_state": story_state, "is_ending": is_ending})
 
 
 async def handle_action(request):
-    global current_game
-    if current_game is None:
+    visitor_id = get_visitor_id(request)
+    game = games.get(visitor_id)
+    if game is None:
         return web.json_response({"error": "no active game, start first"}, status=400)
     try:
         body = await request.json()
@@ -563,64 +700,68 @@ async def handle_action(request):
     if not choice:
         return web.json_response({"error": "choice is required"}, status=400)
 
-    # Handle ending choice
     if choice.startswith("【结局】"):
-        game_name = GAME_NAMES.get(current_game.world, "米哈游")
+        game_name = GAME_NAMES.get(game.world, "米哈游")
         ending_prompt = f"你是{game_name}文字冒险的终章叙事者。基于冒险历程，用2-3段荡气回肠的结尾叙事收束整个故事，包括角色去向、世界变化和一句有韵味的结尾。只输出叙事，无需选项。"
         try:
             finale_raw = await call_deepseek([{"role": "system", "content": ending_prompt}], api_key=user_key or None)
         except Exception as e:
             return web.json_response({"error": f"Finale failed: {e}"}, status=500)
-        current_game.add_turn("system", finale_raw)
+        game.add_turn("system", finale_raw)
         return web.json_response({"narrative": finale_raw, "options": [], "story_state": "", "is_ending": True})
 
-    visitor_id = get_visitor_id(request)
-
     if user_key:
-        current_game.has_own_key = True
+        game.has_own_key = True
     
-    if not current_game.has_own_key:
+    if not game.has_own_key:
         ip_left = IP_QUOTA.get(visitor_id, FREE_TURNS)
         if ip_left <= 0:
             return web.json_response({"error": "free_turns_exhausted"}, status=402)
         IP_QUOTA[visitor_id] = ip_left - 1
         save_ip_quota()
     
-    if current_game.has_own_key:
+    STATS["turns_played"] += 1
+    STATS["last_active"][visitor_id] = datetime.now()
+    if game.has_own_key:
         logger.info("ACTION: own-key visitor=%s", visitor_id)
     else:
         logger.info("ACTION: visitor=%s free_turns_left=%d", visitor_id, IP_QUOTA.get(visitor_id, FREE_TURNS))
 
-    current_game.add_turn("user", choice)
+    game.add_turn("user", choice)
     short_choice = re.sub(r"^\d+[.、]\s*", "", choice.strip())[:80]
     prev_narration = ""
-    for m in reversed(current_game.history):
+    for m in reversed(game.history):
         if m["role"] == "system":
             prev_narration = m["content"]
             break
-    rag = build_rag_context(short_choice, current_game.world, narrative=prev_narration)
-    messages = build_messages(current_game, rag, f"我的选择：{choice}", story_state=story_state)
+    rag = build_rag_context(short_choice, game.world, narrative=prev_narration)
+    messages = build_messages(game, rag, f"我的选择：{choice}", story_state=story_state)
+    if body.get("stream"):
+        narrative_gen = call_deepseek_stream(messages, api_key=user_key or None)
+        return await streaming_handler(narrative_gen, request, game, game.world, None, user_key)
+
     try:
         raw = await call_deepseek(messages, api_key=user_key or None)
     except Exception as e:
         return web.json_response({"error": f"DeepSeek call failed: {e}"}, status=500)
     narrative, options, story_state, is_ending = parse_narrative(raw)
     if not options or len(options) < 2:
-        gen_opts = await generate_options(narrative, current_game.world, story_state, choice, api_key=user_key or None)
+        gen_opts = await generate_options(narrative, game.world, story_state, choice, api_key=user_key or None)
         if gen_opts:
             options = gen_opts
         else:
             options = ["1. 继续前进", "2. 仔细观察周围", "3. 转身离开", "4. 试着呼喊"]
     if is_ending:
         options = ["【结局】迎接冒险的终章"] + options[:3]
-    current_game.add_turn("system", narrative)
-    await maybe_summarize(current_game, api_key=user_key or None)
+    game.add_turn("system", narrative)
+    await maybe_summarize(game, api_key=user_key or None)
     return web.json_response({"narrative": narrative, "options": options, "story_state": story_state, "is_ending": is_ending})
 
 
 async def handle_context(request):
-    global current_game
-    if current_game is None:
+    visitor_id = get_visitor_id(request)
+    game = games.get(visitor_id)
+    if game is None:
         return web.json_response({"error": "no active game"}, status=400)
     try:
         body = await request.json()
@@ -632,41 +773,43 @@ async def handle_context(request):
     if not user_key:
         return web.json_response({"error": "own key required for direct mode"}, status=400)
 
-    current_game.has_own_key = True
+    game.has_own_key = True
     prev_narration = ""
-    for m in reversed(current_game.history):
+    for m in reversed(game.history):
         if m["role"] == "system":
             prev_narration = m["content"]
             break
     short_choice = re.sub(r"^\d+[.、]\s*", "", choice.strip())[:80]
-    rag = build_rag_context(short_choice, current_game.world, narrative=prev_narration)
-    messages = build_messages(current_game, rag, f"我的选择：{choice}", story_state=story_state)
-    current_game.add_turn("user", choice)
+    rag = build_rag_context(short_choice, game.world, narrative=prev_narration)
+    messages = build_messages(game, rag, f"我的选择：{choice}", story_state=story_state)
+    game.add_turn("user", choice)
     return web.json_response({"messages": messages})
 
 
 async def handle_saves(request):  return web.json_response({"saves": list_saves()})
 async def handle_save(request):
-    global current_game
-    if current_game is None: return web.json_response({"error": "no active game"}, status=400)
+    visitor_id = get_visitor_id(request)
+    game = games.get(visitor_id)
+    if game is None: return web.json_response({"error": "no active game"}, status=400)
     try:
         body = await request.json()
         name = body.get("name", "").strip()
         if not name: return web.json_response({"error": "name required"}, status=400)
-        save_game(name)
+        save_game(name, game)
         return web.json_response({"ok": True, "name": name})
     except Exception:
         return web.json_response({"error": "invalid json"}, status=400)
 
 async def handle_load(request):
-    global current_game
     try:
         body = await request.json()
         name = body.get("name", "").strip()
         if not name: return web.json_response({"error": "name required"}, status=400)
-        game = load_game(name)
-        if game is None: return web.json_response({"error": "save not found"}, status=404)
-        return web.json_response(game.to_dict())
+        saved = load_game(name)
+        if saved is None: return web.json_response({"error": "save not found"}, status=404)
+        visitor_id = get_visitor_id(request)
+        games[visitor_id] = saved
+        return web.json_response(saved.to_dict())
     except Exception:
         return web.json_response({"error": "invalid json"}, status=400)
 
@@ -697,18 +840,68 @@ async def handle_options(request):
         return web.json_response({"error": str(e)}, status=500)
 
 
+async def handle_stream_narrative(request):
+    try:
+        body = await request.json()
+    except Exception:
+        return web.json_response({"error": "invalid json"}, status=400)
+    messages = body.get("messages", [])
+    api_key = body.get("api_key", "")
+    visitor_id = get_visitor_id(request)
+    game = games.get(visitor_id)
+
+    ws = web.StreamResponse()
+    ws.headers["Content-Type"] = "text/event-stream"
+    ws.headers["Cache-Control"] = "no-cache"
+    await ws.prepare(request)
+
+    full_narrative = ""
+    pending = ""
+    try:
+        async for chunk in call_deepseek_stream(messages, api_key=api_key):
+            full_narrative += chunk
+            pending += chunk
+            state_pos = pending.rfind("【故事状态】")
+            if state_pos < 0:
+                state_pos = pending.rfind("【冒险结束】")
+            if state_pos >= 0:
+                safe = pending[:state_pos]
+                if safe:
+                    await ws.write(f"data: {json.dumps({'c': safe})}\n\n".encode())
+                break
+            elif len(pending) > 12:
+                flush_len = len(pending) - 8
+                await ws.write(f"data: {json.dumps({'c': pending[:flush_len]})}\n\n".encode())
+                pending = pending[flush_len:]
+    except Exception as e:
+        await ws.write(f"data: {json.dumps({'error': str(e)})}\n\n".encode())
+        return ws
+
+    narrative, _, story_state, is_ending = parse_narrative(full_narrative)
+    if game:
+        game.add_turn("system", narrative)
+    gen_opts = await generate_options(narrative, game.world if game else "gi", story_state, api_key=api_key)
+    if not gen_opts:
+        gen_opts = ["1. 继续前进", "2. 仔细观察周围", "3. 转身离开", "4. 试着呼喊"]
+    if is_ending:
+        gen_opts = ["【结局】迎接冒险的终章"] + gen_opts[:3]
+    await ws.write(f"data: {json.dumps({'done': True, 'options': gen_opts, 'story_state': story_state, 'is_ending': is_ending})}\n\n".encode())
+    return ws
+
+
 async def handle_restore(request):
-    global current_game
     try:
         body = await request.json()
         world = body.get("world", "gi")
         character = body.get("character", "旅行者")
         history = body.get("history", [])
         if world not in ("gi", "hsr"): return web.json_response({"error": "invalid world"}, status=400)
-        current_game = GameState(world, character)
+        visitor_id = get_visitor_id(request)
+        game = GameState(world, character)
         for turn in history:
-            current_game.add_turn("system", turn.get("narrative", ""))
-            current_game.add_turn("user", turn.get("choice", ""))
+            game.add_turn("system", turn.get("narrative", ""))
+            game.add_turn("user", turn.get("choice", ""))
+        games[visitor_id] = game
         return web.json_response({"ok": True})
     except Exception:
         return web.json_response({"error": "invalid json"}, status=400)
@@ -722,6 +915,7 @@ def create_app():
     app.router.add_post("/api/adventure/action", handle_action)
     app.router.add_post("/api/adventure/context", handle_context)
     app.router.add_post("/api/adventure/restore", handle_restore)
+    app.router.add_post("/api/adventure/stream-narrative", handle_stream_narrative)
     app.router.add_post("/api/adventure/options", handle_options)
     app.router.add_get("/api/adventure/saves", handle_saves)
     app.router.add_post("/api/adventure/save", handle_save)
