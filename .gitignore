@@ -25,6 +25,7 @@ tunnel_url.txt
 
 # IDE / tools
 .superpowers/
+docs/superpowers/
 .vscode/
 .idea/
 
